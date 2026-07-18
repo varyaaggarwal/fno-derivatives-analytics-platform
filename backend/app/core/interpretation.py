@@ -17,6 +17,7 @@ def compute_pcr(chain_df):
 
 
 def pcr_card(pcr):
+    pcr = float(pcr)
     if pcr > 1.3:
         sentiment, note = "Bullish", "Heavy put writing relative to calls suggests traders expect a floor -- bullish-to-neutral bias."
     elif pcr < 0.7:
@@ -44,10 +45,12 @@ def compute_max_pain(chain_df):
                 loss += (row.strike - candidate_price) * row.open_interest
         total_loss_to_writers.append(loss)
     idx = int(np.argmin(total_loss_to_writers))
-    return strikes[idx]
+    return float(strikes[idx])
 
 
 def max_pain_card(max_pain_strike, spot):
+    max_pain_strike = float(max_pain_strike)
+    spot = float(spot)
     direction = "above" if spot > max_pain_strike else "below" if spot < max_pain_strike else "at"
     pct = abs(spot - max_pain_strike) / max_pain_strike * 100
     note = (f"Spot is trading {pct:.1f}% {direction} the max pain strike of {max_pain_strike:.0f}. "
@@ -57,6 +60,7 @@ def max_pain_card(max_pain_strike, spot):
 
 def iv_spike_card(current_iv, historical_avg_iv):
     """Flags unusually elevated or depressed IV relative to a trailing average."""
+    current_iv, historical_avg_iv = float(current_iv), float(historical_avg_iv)
     if historical_avg_iv <= 0:
         return {"metric": "IV Spike", "value": None, "note": "Insufficient history to assess IV spike."}
     change_pct = (current_iv - historical_avg_iv) / historical_avg_iv * 100
