@@ -63,10 +63,10 @@ export default function SurfacePage() {
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={smile}>
-              <CartesianGrid stroke="#1F2733" strokeDasharray="3 3" />
-              <XAxis dataKey="strike" stroke="#8B98A5" fontSize={11} />
-              <YAxis stroke="#8B98A5" fontSize={11} unit="%" />
-              <Tooltip contentStyle={{ background: "#12171F", border: "1px solid #1F2733", fontSize: 12 }} />
+              <CartesianGrid stroke="#242428" strokeDasharray="3 3" />
+              <XAxis dataKey="strike" stroke="#8B8B92" fontSize={11} />
+              <YAxis stroke="#8B8B92" fontSize={11} unit="%" />
+              <Tooltip contentStyle={{ background: "#0A0A0B", border: "1px solid #242428", fontSize: 12 }} />
               <Line type="monotone" dataKey="implied_volatility" stroke="#6366F1" strokeWidth={2} dot={{ r: 2 }} name="IV %" />
             </LineChart>
           </ResponsiveContainer>
@@ -95,7 +95,7 @@ export default function SurfacePage() {
                         key={e}
                         title={`${iv?.toFixed(2)}%`}
                         className="w-12 h-7 text-center rounded text-[10px] text-bg font-medium"
-                        style={{ background: iv !== undefined ? ivColor(iv, minIv, maxIv) : "#1F2733" }}
+                        style={{ background: iv !== undefined ? ivColor(iv, minIv, maxIv) : "#242428" }}
                       >
                         {iv !== undefined ? iv.toFixed(1) : "-"}
                       </td>

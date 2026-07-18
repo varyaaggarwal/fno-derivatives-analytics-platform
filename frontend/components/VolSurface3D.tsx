@@ -40,7 +40,7 @@ export default function VolSurface3D({ rows }: { rows: VolSurfaceRow[] }) {
               [1, "#F87171"],
             ],
             showscale: true,
-            colorbar: { title: "IV %", titlefont: { color: "#8B98A5" }, tickfont: { color: "#8B98A5" }, thickness: 14 },
+            colorbar: { title: "IV %", titlefont: { color: "#8B8B92" }, tickfont: { color: "#8B8B92" }, thickness: 14 },
             contours: { z: { show: true, usecolormap: true, project: { z: true } } },
           },
         ]}
@@ -50,12 +50,12 @@ export default function VolSurface3D({ rows }: { rows: VolSurfaceRow[] }) {
           plot_bgcolor: "transparent",
           margin: { l: 0, r: 0, t: 10, b: 0 },
           scene: {
-            xaxis: { title: "Strike", color: "#8B98A5", gridcolor: "#1F2733", backgroundcolor: "transparent" },
-            yaxis: { title: "Expiry (days)", color: "#8B98A5", gridcolor: "#1F2733", backgroundcolor: "transparent" },
-            zaxis: { title: "IV %", color: "#8B98A5", gridcolor: "#1F2733", backgroundcolor: "transparent" },
+            xaxis: { title: "Strike", color: "#8B8B92", gridcolor: "#242428", backgroundcolor: "transparent" },
+            yaxis: { title: "Expiry (days)", color: "#8B8B92", gridcolor: "#242428", backgroundcolor: "transparent" },
+            zaxis: { title: "IV %", color: "#8B8B92", gridcolor: "#242428", backgroundcolor: "transparent" },
             camera: { eye: { x: 1.5, y: -1.5, z: 0.8 } },
           },
-          font: { family: "Inter, sans-serif", color: "#E6EDF3" },
+          font: { family: "Inter, sans-serif", color: "#EDEDEF" },
         }}
         config={{ displayModeBar: false, responsive: true }}
         style={{ width: "100%", height: "100%" }}

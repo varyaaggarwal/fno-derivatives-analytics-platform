@@ -4,12 +4,13 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        bg: "#0B0F14",
-        surface: "#12171F",
-        surface2: "#171D26",
-        border: "#1F2733",
-        text: "#E6EDF3",
-        muted: "#8B98A5",
+        bg: "#000000",
+        surface: "#0A0A0B",
+        surface2: "#151517",
+        surface3: "#1C1C1F",
+        border: "#242428",
+        text: "#EDEDEF",
+        muted: "#8B8B92",
         bullish: "#34D399",
         bearish: "#F87171",
         accent: "#6366F1",
@@ -21,7 +22,8 @@ module.exports = {
         mono: ["var(--font-mono)", "monospace"],
       },
       borderRadius: {
-        card: "10px",
+        card: "14px",
+        pill: "9999px",
       },
     },
   },

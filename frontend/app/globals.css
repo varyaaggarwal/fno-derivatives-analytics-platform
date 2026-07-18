@@ -10,12 +10,12 @@
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #1F2733 #0B0F14;
+  scrollbar-color: #242428 #000000;
 }
 
 body {
-  background: #0B0F14;
-  color: #E6EDF3;
+  background: #000000;
+  color: #EDEDEF;
 }
 
 @media (prefers-reduced-motion: reduce) {

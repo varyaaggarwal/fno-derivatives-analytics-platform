@@ -32,12 +32,12 @@ export default function PnlPage() {
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData}>
-              <CartesianGrid stroke="#1F2733" strokeDasharray="3 3" />
-              <XAxis dataKey="name" stroke="#8B98A5" fontSize={12} />
-              <YAxis stroke="#8B98A5" fontSize={11} />
-              <ReferenceLine y={0} stroke="#1F2733" />
+              <CartesianGrid stroke="#242428" strokeDasharray="3 3" />
+              <XAxis dataKey="name" stroke="#8B8B92" fontSize={12} />
+              <YAxis stroke="#8B8B92" fontSize={11} />
+              <ReferenceLine y={0} stroke="#242428" />
               <Tooltip
-                contentStyle={{ background: "#12171F", border: "1px solid #1F2733", fontSize: 12 }}
+                contentStyle={{ background: "#0A0A0B", border: "1px solid #242428", fontSize: 12 }}
                 formatter={(v: number) => [`₹${v.toLocaleString()}`, "P&L"]}
               />
               <Bar dataKey="value" radius={[4, 4, 4, 4]}>

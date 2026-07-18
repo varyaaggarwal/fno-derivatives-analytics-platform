@@ -46,7 +46,7 @@ export default function GreekGauge({
         <path
           d={`M ${arcStart.x} ${arcStart.y} A ${radius} ${radius} 0 0 1 ${arcEnd.x} ${arcEnd.y}`}
           fill="none"
-          stroke="#1F2733"
+          stroke="#242428"
           strokeWidth="8"
           strokeLinecap="round"
         />
@@ -57,8 +57,8 @@ export default function GreekGauge({
           strokeWidth="8"
           strokeLinecap="round"
         />
-        <line x1={cx} y1={cy} x2={needleX} y2={needleY} stroke="#E6EDF3" strokeWidth="2" strokeLinecap="round" />
-        <circle cx={cx} cy={cy} r="3" fill="#E6EDF3" />
+        <line x1={cx} y1={cy} x2={needleX} y2={needleY} stroke="#EDEDEF" strokeWidth="2" strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r="3" fill="#EDEDEF" />
         <text x={cx} y={cy - 12} textAnchor="middle" className="font-display" fontSize="14" fill={color}>
           {symbol}
         </text>

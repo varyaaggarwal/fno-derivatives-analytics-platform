@@ -68,11 +68,11 @@ export default function DosPage() {
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={equityData}>
-                  <CartesianGrid stroke="#1F2733" strokeDasharray="3 3" />
-                  <XAxis dataKey="trade" stroke="#8B98A5" fontSize={11} label={{ value: "Trade #", position: "insideBottom", offset: -3, fill: "#8B98A5", fontSize: 11 }} />
-                  <YAxis stroke="#8B98A5" fontSize={11} />
-                  <ReferenceLine y={0} stroke="#1F2733" />
-                  <Tooltip contentStyle={{ background: "#12171F", border: "1px solid #1F2733", fontSize: 12 }} formatter={(v: number) => [`₹${v.toLocaleString()}`, "Cumulative P&L"]} />
+                  <CartesianGrid stroke="#242428" strokeDasharray="3 3" />
+                  <XAxis dataKey="trade" stroke="#8B8B92" fontSize={11} label={{ value: "Trade #", position: "insideBottom", offset: -3, fill: "#8B8B92", fontSize: 11 }} />
+                  <YAxis stroke="#8B8B92" fontSize={11} />
+                  <ReferenceLine y={0} stroke="#242428" />
+                  <Tooltip contentStyle={{ background: "#0A0A0B", border: "1px solid #242428", fontSize: 12 }} formatter={(v: number) => [`₹${v.toLocaleString()}`, "Cumulative P&L"]} />
                   <Line type="stepAfter" dataKey="pnl" stroke="#6366F1" strokeWidth={2} dot={{ r: 2 }} />
                 </LineChart>
               </ResponsiveContainer>
