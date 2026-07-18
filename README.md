@@ -1,7 +1,29 @@
-# F&O Derivatives Analytics Platform — Engine + Backtest (Phase 1)
+# F&O Derivatives Analytics Platform
 
-AlgoLabs Assignment 2. This pass builds and validates the **math/DOS engine
-and Excel deliverable** (per plan) — the FastAPI/React UI layer comes next.
+AlgoLabs Assignment 2. Full-stack: FastAPI backend wrapping the pricing/DOS
+engine, Next.js frontend consuming it. Live NSE integration and deployment
+are the remaining steps — see "Manual steps to go live" below.
+
+## Run it locally
+
+**Backend:**
+```bash
+cd backend
+pip install -r requirements.txt
+python -m pytest tests/ -v          # validate the pricing/IV engine first
+python -m uvicorn main:app --reload --port 8000
+```
+
+**Frontend** (separate terminal):
+```bash
+cd frontend
+npm install
+cp .env.local.example .env.local    # NEXT_PUBLIC_API_BASE=http://localhost:8000
+npm run dev
+```
+Open http://localhost:3000 — Overview, Option Chain, Vol Surface, P&L
+Decomposer, and DOS Strategy pages, all backed by the live FastAPI endpoints
+(currently serving mock NSE-shaped data, see below).
 
 ## What's here
 
@@ -25,6 +47,17 @@ backend/tests/
 excel_report/
   generate_excel_report.py  Builds FnO_Analytics_Report.xlsx (chain+Greeks, vol smile/surface,
                              interpretation cards, P&L decomposition, DOS backtest + equity curve)
+
+backend/main.py
+  FastAPI app: /api/chain, /api/vol-surface, /api/interpretation,
+  /api/pnl-decompose, /api/dos/backtest, /api/dos/live-signal.
+  LIVE_NSE=true env var switches from mock to live_nse_chain.py (untested
+  in this dev environment -- verify from a machine with real network access).
+
+frontend/
+  Next.js 14 + Tailwind + Recharts. Dark trading-terminal design (see
+  "Design system" below). Pages: Overview (/), Option Chain (/chain),
+  Vol Surface (/surface), P&L Decomposer (/pnl), DOS Strategy (/dos).
 ```
 
 ## Run it
@@ -66,8 +99,33 @@ python generate_excel_report.py     # regenerate the Excel report
 - Deep ITM/OTM delta sanity (→1 / →0).
 - Excel workbook has zero formula/calculation errors (verified via LibreOffice recalc).
 
-## Next phase (not built yet)
+## Design system (frontend)
 
-FastAPI endpoints wrapping these modules, Supabase schema + caching layer for
-live NSE snapshots, Next.js frontend (option chain table, 3D vol surface,
-P&L chart, DOS live panel), deployment.
+Dark trading-terminal aesthetic, deliberately not the generic "AI cream" or
+"acid-green" look: bg `#0B0F14`, cards `#12171F`, borders `#1F2733`, text
+`#E6EDF3`, bullish/call `#34D399`, bearish/put `#F87171`, one interactive
+accent `#6366F1` kept separate from the sentiment colors. Space Grotesk for
+headers, Inter for body, JetBrains Mono for every number (strikes/Greeks
+align like a real terminal). Signature element: the ATM Greek gauges on the
+Overview page, styled after the FnO deck's own "Risk Dashboard" gauge icons.
+
+## Manual steps to go live (not done yet)
+
+1. **Live NSE data**: run `backend/app/data/live_nse_chain.py` from a machine
+   with real network access (not a sandboxed CI environment), verify it
+   returns real data, then set `LIVE_NSE=true` when starting the backend.
+2. **Supabase**: create a project, run `supabase/schema.sql`, fill in `.env`
+   from `.env.example`. Nothing currently writes to it yet -- next step is
+   wiring `main.py` to cache chain snapshots and persist DOS trades there.
+3. **Deploy frontend**: push to GitHub (already done), import into Vercel,
+   set `NEXT_PUBLIC_API_BASE` to your deployed backend URL.
+4. **Deploy backend**: Render or Railway, set `LIVE_NSE` and Supabase env
+   vars there.
+5. **DOS backtest historical data**: still mock (see data notes above) --
+   needs a paid intraday vendor or forward data collection.
+6. **One-pager report**: not written yet.
+
+## Next phase
+
+Supabase persistence wiring (cache writes + DOS trade log inserts), live NSE
+verification, deployment, and the one-pager report.
