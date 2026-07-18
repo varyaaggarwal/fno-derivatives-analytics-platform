@@ -5,17 +5,19 @@ flip the env var once you've verified live_nse_chain.py works from a
 machine with real network access to nseindia.com (see that file's docstring).
 """
 import os
+from datetime import date, timedelta
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 
 from app.core.black_scholes import price_and_greeks
 from app.core.iv_solver import solve_iv_chain
-from app.core.interpretation import compute_pcr, pcr_card, compute_max_pain, max_pain_card, iv_spike_card
+from app.core.interpretation import compute_pcr, pcr_card, compute_max_pain, max_pain_card, iv_spike_card, dos_trade_card
 from app.core.pnl_decomposer import decompose_pnl
 from app.core.backtester import run_backtest
 from app.data.mock_option_chain import generate_chain, generate_vol_surface
 from app.data.mock_bnf_candles import generate_dataset
+from app.data import supabase_client
 
 LIVE_NSE = os.getenv("LIVE_NSE", "false").lower() == "true"
 RISK_FREE_RATE = 0.065
@@ -55,7 +57,7 @@ def _enrich_with_greeks(chain_df, spot, expiry_days):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "live_nse": LIVE_NSE}
+    return {"status": "ok", "live_nse": LIVE_NSE, "supabase_configured": supabase_client.is_configured()}
 
 
 @app.get("/api/chain")
@@ -64,11 +66,20 @@ def get_chain(expiry_days: int = 6, spot: float = 24350.0):
     chain = _get_chain_df(expiry_days, spot)
     actual_spot = chain.attrs.get("spot", spot)
     enriched = _enrich_with_greeks(chain, actual_spot, expiry_days)
+    rows = enriched.round(4).to_dict(orient="records")
+
+    # Cache the snapshot in Supabase (no-op if SUPABASE_URL isn't configured).
+    symbol = "NIFTY" if LIVE_NSE else "MOCK_NIFTY"
+    supabase_client.cache_chain_snapshot(
+        symbol=symbol, spot=float(actual_spot),
+        expiry_date=date.today() + timedelta(days=expiry_days), raw_rows=rows,
+    )
+
     return {
         "spot": actual_spot,
         "expiry_days": expiry_days,
         "timestamp": chain.attrs.get("timestamp"),
-        "rows": enriched.round(4).to_dict(orient="records"),
+        "rows": rows,
     }
 
 
@@ -108,14 +119,35 @@ def get_pnl_decompose(strike: float = 24350, spot_move_pct: float = 0.8, iv_chan
 
 
 @app.get("/api/dos/backtest")
-def get_dos_backtest(n_weeks: int = 8):
-    """DOS strategy backtest -- MVP requires >= 4 weeks; default gives 8."""
+def get_dos_backtest(n_weeks: int = 8, persist: bool = False):
+    """
+    DOS strategy backtest -- MVP requires >= 4 weeks; default gives 8.
+    Set persist=true to also write the trade log to Supabase's dos_trade_log
+    table (off by default so repeated dashboard loads don't duplicate rows --
+    call it explicitly, e.g. once per session, or wire a "Save to DB" button).
+    """
     bnf_data = generate_dataset(n_weeks=n_weeks)
     trade_log, summary = run_backtest(bnf_data)
     trade_log_out = trade_log.copy()
     for col in ["session_date", "entry_time", "exit_time"]:
         trade_log_out[col] = trade_log_out[col].astype(str)
-    return {"summary": summary, "trades": trade_log_out.to_dict(orient="records")}
+    trades = trade_log_out.to_dict(orient="records")
+    for t in trades:
+        t["interpretation"] = dos_trade_card(t)["note"]
+
+    persisted_count = 0
+    if persist:
+        persisted_count = supabase_client.insert_dos_trades(trades)
+
+    return {"summary": summary, "trades": trades,
+            "persisted_to_supabase": persisted_count if persist else None}
+
+
+@app.get("/api/dos/history")
+def get_dos_history(limit: int = 100):
+    """Reads back previously persisted DOS trades from Supabase (empty list if unconfigured)."""
+    return {"trades": supabase_client.fetch_recent_dos_trades(limit=limit),
+            "supabase_configured": supabase_client.is_configured()}
 
 
 @app.get("/api/dos/live-signal")

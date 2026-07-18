@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, VolSurfaceRow } from "@/lib/api";
 import Card from "@/components/Card";
+import VolSurface3D from "@/components/VolSurface3D";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 function ivColor(iv: number, minIv: number, maxIv: number) {
@@ -53,6 +54,10 @@ export default function SurfacePage() {
         <h1 className="font-display text-xl font-medium">Volatility Surface</h1>
         <p className="text-sm text-muted mt-1">Call IV across strike &amp; expiry, mock multi-expiry chain</p>
       </div>
+
+      <Card title="Implied Volatility Surface (3D)" subtitle="Strike × expiry days × IV, rotate/zoom to inspect">
+        <VolSurface3D rows={rows} />
+      </Card>
 
       <Card title="IV Smile" subtitle={expiries.length ? `Nearest expiry: ${expiries[0]}d` : ""}>
         <div className="h-64">

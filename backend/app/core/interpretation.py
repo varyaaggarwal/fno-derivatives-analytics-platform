@@ -58,6 +58,41 @@ def max_pain_card(max_pain_strike, spot):
     return {"metric": "Max Pain", "value": max_pain_strike, "note": note}
 
 
+def dos_trade_card(trade):
+    """
+    Plain-language interpretation card for one DOS trade (live or backtested).
+    `trade` is a dict shaped like a row from backtester.run_backtest()'s trade
+    log or the /api/dos/live-signal response, at minimum containing:
+    day_type, option_type, strike, exit_reason, pnl_rupees, and (optionally)
+    delta_pnl/gamma_pnl/theta_pnl/vega_pnl for the driver line.
+    """
+    day_type = trade.get("day_type", "session")
+    opt = "call" if trade.get("option_type") == "CE" else "put"
+    strike = trade.get("strike")
+    exit_reason = trade.get("exit_reason", "open")
+    pnl = trade.get("pnl_rupees")
+
+    reason_note = {
+        "initial_sl": "the initial stop-loss was hit -- the trade was cut early to cap loss.",
+        "trailing_sl": "the trailing stop triggered as SuperTrend flipped against the sold side.",
+        "market_close": "the position ran to market close with no stop-loss triggered.",
+    }.get(exit_reason, "the trade is still open.")
+
+    driver_note = ""
+    greek_pnls = {k: trade.get(k) for k in ("delta_pnl", "gamma_pnl", "theta_pnl", "vega_pnl")
+                  if trade.get(k) is not None}
+    if greek_pnls:
+        driver = max(greek_pnls, key=lambda k: abs(greek_pnls[k])).replace("_pnl", "").capitalize()
+        driver_note = f" {driver} was the main driver of this trade's P&L."
+
+    result = "profitable" if (pnl is not None and pnl > 0) else "a loss" if pnl is not None else "still open"
+    note = (f"{day_type} DOS trade: sold the {strike:.0f} {opt} on the SuperTrend signal; "
+            f"{reason_note} Result: {result}"
+            + (f" of Rs {abs(pnl):,.0f}." if pnl is not None else ".") + driver_note)
+    return {"metric": "DOS Trade", "day_type": day_type, "option_type": trade.get("option_type"),
+            "strike": strike, "pnl_rupees": pnl, "note": note}
+
+
 def iv_spike_card(current_iv, historical_avg_iv):
     """Flags unusually elevated or depressed IV relative to a trailing average."""
     current_iv, historical_avg_iv = float(current_iv), float(historical_avg_iv)

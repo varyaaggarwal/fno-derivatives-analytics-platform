@@ -21,6 +21,7 @@ from datetime import time, datetime, timedelta
 from .supertrend import compute_supertrend
 from .dos_strategy import select_strike, get_signal, initial_sl_price, trailing_sl_hit, entry_allowed
 from .black_scholes import bs_price
+from .pnl_decomposer import decompose_pnl
 
 ASSUMED_IV = 0.14
 RISK_FREE_RATE = 0.065
@@ -89,6 +90,16 @@ def run_backtest(raw_df):
             premium_exit = _option_premium(exit_row["close"], strike, exit_row["timestamp"], option_type)
 
         pnl_points = premium_sold - premium_exit  # short position: profit if premium falls
+
+        # P&L attribution split by Greek (assignment spec requirement), reusing
+        # the same Taylor-expansion decomposer used by /api/pnl-decompose.
+        # Position is short (-1 lot) from the seller's point of view.
+        bsm_type = "call" if option_type == "CE" else "put"
+        position = {"K": strike, "r": RISK_FREE_RATE, "option_type": bsm_type, "quantity": -LOT_SIZE}
+        snap_t0 = {"S": entry_row["close"], "T": _time_to_expiry_years(entry_row["timestamp"]), "sigma": ASSUMED_IV}
+        snap_t1 = {"S": exit_row["close"], "T": _time_to_expiry_years(exit_row["timestamp"]), "sigma": ASSUMED_IV}
+        attribution = decompose_pnl(position, snap_t0, snap_t1)
+
         trades.append({
             "session_date": session_date, "day_type": day_type,
             "entry_time": entry_row["timestamp"], "exit_time": exit_row["timestamp"],
@@ -98,6 +109,9 @@ def run_backtest(raw_df):
             "premium_sold": round(premium_sold, 2), "premium_exit": round(premium_exit, 2),
             "exit_reason": exit_reason,
             "pnl_points": round(pnl_points, 2), "pnl_rupees": round(pnl_points * LOT_SIZE, 2),
+            "delta_pnl": round(attribution["delta_pnl"], 2), "gamma_pnl": round(attribution["gamma_pnl"], 2),
+            "theta_pnl": round(attribution["theta_pnl"], 2), "vega_pnl": round(attribution["vega_pnl"], 2),
+            "residual_pnl": round(attribution["residual_pnl"], 2),
         })
 
     trade_log = pd.DataFrame(trades)
