@@ -50,9 +50,12 @@ export default function VolSurface3D({ rows }: { rows: VolSurfaceRow[] }) {
           plot_bgcolor: "transparent",
           margin: { l: 0, r: 0, t: 10, b: 0 },
           scene: {
-            xaxis: { title: "Strike", color: "hsl(240, 5%, 64.9%)", gridcolor: "hsl(240, 3.7%, 20%)", backgroundcolor: "transparent" },
-            yaxis: { title: "Expiry (days)", color: "hsl(240, 5%, 64.9%)", gridcolor: "hsl(240, 3.7%, 20%)", backgroundcolor: "transparent" },
-            zaxis: { title: "IV %", color: "hsl(240, 5%, 64.9%)", gridcolor: "hsl(240, 3.7%, 20%)", backgroundcolor: "transparent" },
+            // plotly.js v2+ silently ignores a plain-string `title` on 3D scene
+            // axes (it falls back to "x"/"y"/"z") -- as of v3 it must be an
+            // object with a `text` key for the label to actually render.
+            xaxis: { title: { text: "Strike", font: { color: "hsl(240, 5%, 64.9%)" } }, color: "hsl(240, 5%, 64.9%)", gridcolor: "hsl(240, 3.7%, 20%)", backgroundcolor: "transparent" },
+            yaxis: { title: { text: "Expiry (days)", font: { color: "hsl(240, 5%, 64.9%)" } }, color: "hsl(240, 5%, 64.9%)", gridcolor: "hsl(240, 3.7%, 20%)", backgroundcolor: "transparent" },
+            zaxis: { title: { text: "Implied Volatility (%)", font: { color: "hsl(240, 5%, 64.9%)" } }, color: "hsl(240, 5%, 64.9%)", gridcolor: "hsl(240, 3.7%, 20%)", backgroundcolor: "transparent" },
             camera: { eye: { x: 1.5, y: -1.5, z: 0.8 } },
           },
           font: { family: "Geist Variable, sans-serif", color: "hsl(0, 0%, 98%)" },

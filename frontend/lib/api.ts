@@ -98,11 +98,18 @@ export interface VolSurfaceRow {
   expiry_days: number;
 }
 
+export interface HealthResponse {
+  status: string;
+  live_nse: boolean;
+  supabase_configured: boolean;
+}
+
 export const api = {
+  health: () => getJSON<HealthResponse>(`/api/health`),
   chain: (expiryDays = 6, spot = 24350) => getJSON<ChainResponse>(`/api/chain?expiry_days=${expiryDays}&spot=${spot}`),
   interpretation: (expiryDays = 6, spot = 24350) => getJSON<InterpretationResponse>(`/api/interpretation?expiry_days=${expiryDays}&spot=${spot}`),
   pnlDecompose: (strike = 24350) => getJSON<PnlDecomposeResponse>(`/api/pnl-decompose?strike=${strike}`),
   dosBacktest: (weeks = 8) => getJSON<DosBacktestResponse>(`/api/dos/backtest?n_weeks=${weeks}`),
   dosLiveSignal: () => getJSON<DosLiveSignal>(`/api/dos/live-signal`),
-  volSurface: (spot = 24350) => getJSON<{ spot: number; rows: VolSurfaceRow[] }>(`/api/vol-surface?spot=${spot}`),
+  volSurface: (spot = 24350) => getJSON<{ spot: number; rows: VolSurfaceRow[]; data_source?: string }>(`/api/vol-surface?spot=${spot}`),
 };

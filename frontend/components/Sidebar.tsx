@@ -1,19 +1,26 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { NAV_GROUPS } from "@/lib/nav";
 import CommandTrigger from "@/components/CommandPalette";
+import { api } from "@/lib/api";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [liveNse, setLiveNse] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    api.health().then((h) => setLiveNse(h.live_nse)).catch(() => setLiveNse(null));
+  }, []);
+
   return (
     <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       <div className="h-14 flex items-center gap-2.5 px-4 border-b border-sidebar-border">
         <div className="w-7 h-7 rounded-lg bg-mainBlue flex items-center justify-center font-sans font-bold text-sm shrink-0 text-white">Δ</div>
         <div className="min-w-0">
           <div className="font-sans font-medium text-sm tracking-tight leading-tight truncate text-sidebar-foreground">F&O Analytics</div>
-          <div className="text-[11px] text-muted-foreground leading-tight">AlgoLabs · Assignment 2</div>
         </div>
       </div>
 
@@ -52,7 +59,7 @@ export default function Sidebar() {
 
       <div className="px-4 py-3 border-t border-sidebar-border flex items-center gap-2 text-xs text-muted-foreground">
         <RefreshCw size={12} />
-        Mock data mode
+        {liveNse === null ? "Checking data source…" : liveNse ? "Live NSE data" : "Mock data mode"}
       </div>
     </aside>
   );

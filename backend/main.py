@@ -1,8 +1,18 @@
 """
 FastAPI application. Wraps the pure-Python engine in app/core/ with HTTP
 endpoints. Uses the mock data generators by default (LIVE_NSE=false) --
-flip the env var once you've verified live_nse_chain.py works from a
-machine with real network access to nseindia.com (see that file's docstring).
+flip the env var once you've verified live_nse_chain.py / live_bnf_candles.py
+work from a machine with real network access to nseindia.com and Yahoo
+Finance (see those files' docstrings; this sandbox's network is restricted
+to package registries and can't reach either, so LIVE_NSE=true has not been
+exercised against the real internet here).
+
+With LIVE_NSE=true: /api/chain and /api/vol-surface hit NSE's live
+option-chain endpoint; /api/dos/live-signal and /api/dos/backtest pull real
+5-min Bank Nifty index candles via yfinance. Every live path falls back to
+its mock generator (and reports data_source/live_fetch_error in the
+response) if the live fetch throws, so a flaky NSE/Yahoo response degrades
+the dashboard instead of crashing it.
 """
 import os
 from datetime import date, timedelta
@@ -33,13 +43,20 @@ app.add_middleware(
 
 
 def _get_chain_df(expiry_days=6, spot=None):
+    """Returns (df, data_source, live_fetch_error) so callers can be honest about which one they got."""
     if LIVE_NSE:
         from app.data.live_nse_chain import fetch_option_chain, normalize_to_flat_chain
-        raw = fetch_option_chain("NIFTY")
-        df = normalize_to_flat_chain(raw)
-        df.attrs.setdefault("expiry_days", expiry_days)
-        return df
-    return generate_chain(spot=spot or 24350.0, expiry_days=expiry_days)
+        try:
+            raw = fetch_option_chain("NIFTY")
+            df = normalize_to_flat_chain(raw)
+            df.attrs.setdefault("expiry_days", expiry_days)
+            return df, "live", None
+        except Exception as exc:
+            # NSE blocks/rate-limits cloud IPs often (see live_nse_chain.py) --
+            # degrade to mock instead of 500ing the whole dashboard.
+            live_fetch_error = str(exc)
+            return generate_chain(spot=spot or 24350.0, expiry_days=expiry_days), "mock", live_fetch_error
+    return generate_chain(spot=spot or 24350.0, expiry_days=expiry_days), "mock", None
 
 
 def _enrich_with_greeks(chain_df, spot, expiry_days):
@@ -63,13 +80,13 @@ def health():
 @app.get("/api/chain")
 def get_chain(expiry_days: int = 6, spot: float = 24350.0):
     """Option chain with Greeks for every strike -- MVP requirement #1 and #2."""
-    chain = _get_chain_df(expiry_days, spot)
+    chain, data_source, live_fetch_error = _get_chain_df(expiry_days, spot)
     actual_spot = chain.attrs.get("spot", spot)
     enriched = _enrich_with_greeks(chain, actual_spot, expiry_days)
     rows = enriched.round(4).to_dict(orient="records")
 
     # Cache the snapshot in Supabase (no-op if SUPABASE_URL isn't configured).
-    symbol = "NIFTY" if LIVE_NSE else "MOCK_NIFTY"
+    symbol = "NIFTY" if data_source == "live" else "MOCK_NIFTY"
     supabase_client.cache_chain_snapshot(
         symbol=symbol, spot=float(actual_spot),
         expiry_date=date.today() + timedelta(days=expiry_days), raw_rows=rows,
@@ -80,20 +97,35 @@ def get_chain(expiry_days: int = 6, spot: float = 24350.0):
         "expiry_days": expiry_days,
         "timestamp": chain.attrs.get("timestamp"),
         "rows": rows,
+        "data_source": data_source,
+        "live_fetch_error": live_fetch_error,
     }
 
 
 @app.get("/api/vol-surface")
 def get_vol_surface(spot: float = 24350.0):
     """Multi-expiry IV grid for the vol surface / smile view."""
+    if LIVE_NSE:
+        from app.data.live_nse_chain import fetch_option_chain, normalize_to_vol_surface
+        try:
+            raw = fetch_option_chain("NIFTY")
+            surface = normalize_to_vol_surface(raw)
+            actual_spot = surface.attrs.get("spot", spot)
+            return {"spot": actual_spot, "rows": surface.round(4).to_dict(orient="records"), "data_source": "live"}
+        except Exception as exc:
+            # Fall through to mock rather than 500ing the dashboard -- NSE
+            # rate-limits/blocks are common, see live_nse_chain.py docstring.
+            surface = generate_vol_surface(spot=spot)
+            return {"spot": spot, "rows": surface.round(4).to_dict(orient="records"),
+                    "data_source": "mock", "live_fetch_error": str(exc)}
     surface = generate_vol_surface(spot=spot)
-    return {"spot": spot, "rows": surface.round(4).to_dict(orient="records")}
+    return {"spot": spot, "rows": surface.round(4).to_dict(orient="records"), "data_source": "mock"}
 
 
 @app.get("/api/interpretation")
 def get_interpretation(expiry_days: int = 6, spot: float = 24350.0):
     """PCR / Max Pain / IV Spike cards -- MVP requirement: at least two interpretation cards."""
-    chain = _get_chain_df(expiry_days, spot)
+    chain, _data_source, _live_fetch_error = _get_chain_df(expiry_days, spot)
     actual_spot = chain.attrs.get("spot", spot)
     pcr = compute_pcr(chain)
     max_pain = compute_max_pain(chain)
@@ -126,7 +158,20 @@ def get_dos_backtest(n_weeks: int = 8, persist: bool = False):
     table (off by default so repeated dashboard loads don't duplicate rows --
     call it explicitly, e.g. once per session, or wire a "Save to DB" button).
     """
-    bnf_data = generate_dataset(n_weeks=n_weeks)
+    data_source = "mock"
+    live_fetch_error = None
+    bnf_data = None
+    if LIVE_NSE:
+        from app.data.live_bnf_candles import fetch_expiry_day_history
+        try:
+            bnf_data = fetch_expiry_day_history(n_weeks=n_weeks)
+            if bnf_data["session_date"].nunique() == 0:
+                raise ValueError("no Wed/Thu sessions in the available window")
+            data_source = "live"
+        except Exception as exc:
+            live_fetch_error = str(exc)
+    if bnf_data is None:
+        bnf_data = generate_dataset(n_weeks=n_weeks)
     trade_log, summary = run_backtest(bnf_data)
     trade_log_out = trade_log.copy()
     for col in ["session_date", "entry_time", "exit_time"]:
@@ -140,7 +185,9 @@ def get_dos_backtest(n_weeks: int = 8, persist: bool = False):
         persisted_count = supabase_client.insert_dos_trades(trades)
 
     return {"summary": summary, "trades": trades,
-            "persisted_to_supabase": persisted_count if persist else None}
+            "persisted_to_supabase": persisted_count if persist else None,
+            "data_source": data_source, "sessions_covered": int(bnf_data["session_date"].nunique()),
+            "live_fetch_error": live_fetch_error}
 
 
 @app.get("/api/dos/history")
@@ -153,9 +200,11 @@ def get_dos_history(limit: int = 100):
 @app.get("/api/dos/live-signal")
 def get_dos_live_signal():
     """
-    Mock 'live' DOS signal panel using the most recent bar of a freshly
-    generated mock session, standing in for a real-time feed until you wire
-    live_nse_chain.py / a live futures feed in from your own machine.
+    Live DOS signal panel. When LIVE_NSE is on, pulls the current session's
+    5-min Bank Nifty index candles (see live_bnf_candles.py for why the index
+    stands in for the futures leg) and computes SuperTrend on the real feed.
+    Falls back to a freshly generated mock session if the live fetch fails or
+    the market hasn't produced a confirmed SuperTrend bar yet.
     """
     from app.core.supertrend import compute_supertrend
     from app.core.dos_strategy import select_strike, get_signal
@@ -163,10 +212,26 @@ def get_dos_live_signal():
 
     today = datetime.now()
     day_type = "Wednesday" if today.weekday() == 2 else "Thursday" if today.weekday() == 3 else "Wednesday"
-    bnf_data = generate_dataset(n_weeks=1)
-    df = compute_supertrend(bnf_data, period=10, multiplier=3)
-    last = df.dropna(subset=["supertrend"]).iloc[-1]
 
+    is_mock = True
+    live_fetch_error = None
+    df = None
+    if LIVE_NSE:
+        from app.data.live_bnf_candles import fetch_live_session
+        try:
+            bnf_data = fetch_live_session()
+            df = compute_supertrend(bnf_data, period=10, multiplier=3).dropna(subset=["supertrend"])
+            if df.empty:
+                raise ValueError("no confirmed SuperTrend bar yet this session")
+            is_mock = False
+        except Exception as exc:
+            live_fetch_error = str(exc)
+
+    if df is None:
+        bnf_data = generate_dataset(n_weeks=1)
+        df = compute_supertrend(bnf_data, period=10, multiplier=3).dropna(subset=["supertrend"])
+
+    last = df.iloc[-1]
     signal = get_signal(last["close"], last["supertrend"])
     strike = select_strike(last["supertrend"]) if signal else None
     return {
@@ -176,7 +241,8 @@ def get_dos_live_signal():
         "trend": "up" if last["trend"] == 1 else "down",
         "signal": signal,
         "recommended_strike": strike,
-        "is_mock": True,
+        "is_mock": is_mock,
+        "live_fetch_error": live_fetch_error,
     }
 
 

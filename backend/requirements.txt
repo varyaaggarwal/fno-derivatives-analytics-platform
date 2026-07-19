@@ -5,3 +5,5 @@ pandas
 scipy
 pytest
 supabase
+requests
+yfinance

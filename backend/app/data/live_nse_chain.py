@@ -84,6 +84,38 @@ def normalize_to_flat_chain(raw_json):
     return df
 
 
+def normalize_to_vol_surface(raw_json):
+    """
+    NSE's option-chain-indices response actually carries every live expiry in
+    one payload (each record has an 'expiryDate', and records.expiryDates
+    lists them all) -- so the 3D vol surface needs no extra requests, just a
+    regroup of the same JSON fetch_option_chain() already returns.
+    Output schema matches mock_option_chain.generate_vol_surface(): strike,
+    option_type, implied_volatility, expiry_days.
+    """
+    import pandas as pd
+    from datetime import datetime
+
+    timestamp = raw_json["records"]["timestamp"]
+    as_of = datetime.strptime(timestamp, "%d-%b-%Y %H:%M:%S")
+
+    rows = []
+    for record in raw_json["records"]["data"]:
+        strike = record["strikePrice"]
+        expiry_date = datetime.strptime(record["expiryDate"], "%d-%b-%Y")
+        expiry_days = max((expiry_date - as_of).days, 0)
+        for side, key in (("call", "CE"), ("put", "PE")):
+            if key in record:
+                leg = record[key]
+                iv = leg.get("impliedVolatility", 0.0)
+                if iv:  # NSE returns 0 for illiquid strikes -- skip, they'd flatten the surface
+                    rows.append({"strike": strike, "option_type": side,
+                                 "implied_volatility": iv, "expiry_days": expiry_days})
+    df = pd.DataFrame(rows)
+    df.attrs["spot"] = raw_json["records"]["underlyingValue"]
+    return df
+
+
 if __name__ == "__main__":
     raw = fetch_option_chain("NIFTY")
     chain = normalize_to_flat_chain(raw)
