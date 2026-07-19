@@ -22,7 +22,7 @@ export default function VolSurface3D({ rows }: { rows: VolSurfaceRow[] }) {
   }, [rows]);
 
   if (empty) {
-    return <div className="h-[420px] flex items-center justify-center text-muted text-sm">Loading surface data…</div>;
+    return <div className="h-[420px] flex items-center justify-center text-muted-foreground text-sm">Loading surface data…</div>;
   }
 
   return (
@@ -35,12 +35,12 @@ export default function VolSurface3D({ rows }: { rows: VolSurfaceRow[] }) {
             y,
             z,
             colorscale: [
-              [0, "#6366F1"],
-              [0.5, "#FBBF24"],
-              [1, "#F87171"],
+              [0, "#437DFB"],
+              [0.5, "hsl(30, 80%, 55%)"],
+              [1, "#D93036"],
             ],
             showscale: true,
-            colorbar: { title: "IV %", titlefont: { color: "#8B8B92" }, tickfont: { color: "#8B8B92" }, thickness: 14 },
+            colorbar: { title: "IV %", titlefont: { color: "hsl(240, 5%, 64.9%)" }, tickfont: { color: "hsl(240, 5%, 64.9%)" }, thickness: 14 },
             contours: { z: { show: true, usecolormap: true, project: { z: true } } },
           },
         ]}
@@ -50,12 +50,12 @@ export default function VolSurface3D({ rows }: { rows: VolSurfaceRow[] }) {
           plot_bgcolor: "transparent",
           margin: { l: 0, r: 0, t: 10, b: 0 },
           scene: {
-            xaxis: { title: "Strike", color: "#8B8B92", gridcolor: "#242428", backgroundcolor: "transparent" },
-            yaxis: { title: "Expiry (days)", color: "#8B8B92", gridcolor: "#242428", backgroundcolor: "transparent" },
-            zaxis: { title: "IV %", color: "#8B8B92", gridcolor: "#242428", backgroundcolor: "transparent" },
+            xaxis: { title: "Strike", color: "hsl(240, 5%, 64.9%)", gridcolor: "hsl(240, 3.7%, 20%)", backgroundcolor: "transparent" },
+            yaxis: { title: "Expiry (days)", color: "hsl(240, 5%, 64.9%)", gridcolor: "hsl(240, 3.7%, 20%)", backgroundcolor: "transparent" },
+            zaxis: { title: "IV %", color: "hsl(240, 5%, 64.9%)", gridcolor: "hsl(240, 3.7%, 20%)", backgroundcolor: "transparent" },
             camera: { eye: { x: 1.5, y: -1.5, z: 0.8 } },
           },
-          font: { family: "Inter, sans-serif", color: "#EDEDEF" },
+          font: { family: "Geist Variable, sans-serif", color: "hsl(0, 0%, 98%)" },
         }}
         config={{ displayModeBar: false, responsive: true }}
         style={{ width: "100%", height: "100%" }}

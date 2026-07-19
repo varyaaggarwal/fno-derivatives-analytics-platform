@@ -4,6 +4,8 @@
  * Signature visual for the platform: a semicircular gauge per Greek, deliberately
  * echoing the "Option Greeks: Your Risk Dashboard" gauge-icon language from the
  * FnO induction deck (Δ Γ Θ ν ρ), rather than a generic KPI tile.
+ *
+ * Palette wired to the Zero (Mail-0) template's CSS variables.
  */
 export default function GreekGauge({
   symbol,
@@ -25,7 +27,6 @@ export default function GreekGauge({
   const format = (v: number) => v.toFixed(decimals);
   const clamped = Math.max(min, Math.min(max, value));
   const pct = (clamped - min) / (max - min);
-  const angle = -90 + pct * 180; // semicircle: -90deg (min) to +90deg (max)
   const radius = 40;
   const cx = 50, cy = 50;
   const startAngle = -180, endAngle = 0; // degrees, semicircle path along the top
@@ -46,7 +47,7 @@ export default function GreekGauge({
         <path
           d={`M ${arcStart.x} ${arcStart.y} A ${radius} ${radius} 0 0 1 ${arcEnd.x} ${arcEnd.y}`}
           fill="none"
-          stroke="#242428"
+          stroke="hsl(var(--border))"
           strokeWidth="8"
           strokeLinecap="round"
         />
@@ -57,14 +58,14 @@ export default function GreekGauge({
           strokeWidth="8"
           strokeLinecap="round"
         />
-        <line x1={cx} y1={cy} x2={needleX} y2={needleY} stroke="#EDEDEF" strokeWidth="2" strokeLinecap="round" />
-        <circle cx={cx} cy={cy} r="3" fill="#EDEDEF" />
-        <text x={cx} y={cy - 12} textAnchor="middle" className="font-display" fontSize="14" fill={color}>
+        <line x1={cx} y1={cy} x2={needleX} y2={needleY} stroke="hsl(var(--foreground))" strokeWidth="2" strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r="3" fill="hsl(var(--foreground))" />
+        <text x={cx} y={cy - 12} textAnchor="middle" className="font-sans" fontSize="14" fill={color}>
           {symbol}
         </text>
       </svg>
-      <div className="font-mono mono-nums text-sm text-text -mt-1">{format(value)}</div>
-      <div className="text-[11px] text-muted">{label}</div>
+      <div className="font-mono mono-nums text-sm text-foreground -mt-1">{format(value)}</div>
+      <div className="text-[11px] text-muted-foreground">{label}</div>
     </div>
   );
 }

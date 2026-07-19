@@ -11,7 +11,7 @@ export default function PnlPage() {
     api.pnlDecompose().then(setData).catch(console.error);
   }, []);
 
-  if (!data) return <div className="text-muted text-sm">Loading...</div>;
+  if (!data) return <div className="text-muted-foreground text-sm">Loading...</div>;
 
   const chartData = [
     { name: "Delta", value: data.delta_pnl },
@@ -24,25 +24,25 @@ export default function PnlPage() {
   return (
     <div className="space-y-4 max-w-4xl">
       <div>
-        <h1 className="font-display text-xl font-medium">P&L Decomposer</h1>
-        <p className="text-sm text-muted mt-1">Short 1 lot ATM NIFTY Call &middot; spot +0.8%, IV +1.3pts, 1 day passes</p>
+        <h1 className="font-sans text-xl font-medium">P&L Decomposer</h1>
+        <p className="text-sm text-muted-foreground mt-1">Short 1 lot ATM NIFTY Call &middot; spot +0.8%, IV +1.3pts, 1 day passes</p>
       </div>
 
       <Card title="Attribution by Greek">
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData}>
-              <CartesianGrid stroke="#242428" strokeDasharray="3 3" />
-              <XAxis dataKey="name" stroke="#8B8B92" fontSize={12} />
-              <YAxis stroke="#8B8B92" fontSize={11} />
-              <ReferenceLine y={0} stroke="#242428" />
+              <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
+              <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
+              <ReferenceLine y={0} stroke="hsl(var(--border))" />
               <Tooltip
-                contentStyle={{ background: "#0A0A0B", border: "1px solid #242428", fontSize: 12 }}
+                contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
                 formatter={(v: number) => [`₹${v.toLocaleString()}`, "P&L"]}
               />
               <Bar dataKey="value" radius={[4, 4, 4, 4]}>
                 {chartData.map((d, i) => (
-                  <Cell key={i} fill={d.value >= 0 ? "#34D399" : "#F87171"} />
+                  <Cell key={i} fill={d.value >= 0 ? "hsl(var(--chart-2))" : "#D93036"} />
                 ))}
               </Bar>
             </BarChart>
@@ -58,11 +58,11 @@ export default function PnlPage() {
         </Card>
         <Card title="Primary Driver">
           <Badge label="neutral" />
-          <div className="mt-2 font-display text-lg">{data.primary_driver}</div>
+          <div className="mt-2 font-sans text-lg">{data.primary_driver}</div>
         </Card>
         <Card title="Residual (higher-order)">
-          <div className="font-mono mono-nums text-lg text-muted">₹{data.residual_pnl.toLocaleString()}</div>
-          <p className="text-xs text-muted mt-1">Effects the linear/quadratic Greeks approximation misses.</p>
+          <div className="font-mono mono-nums text-lg text-muted-foreground">₹{data.residual_pnl.toLocaleString()}</div>
+          <p className="text-xs text-muted-foreground mt-1">Effects the linear/quadratic Greeks approximation misses.</p>
         </Card>
       </div>
     </div>

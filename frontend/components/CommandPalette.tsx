@@ -49,13 +49,13 @@ export default function CommandTrigger() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="focus-ring w-full flex items-center justify-between gap-2 px-3 py-2 rounded-pill bg-surface3 border border-border text-xs text-muted hover:text-text hover:border-accent/50 transition-colors"
+        className="focus-ring w-full flex items-center justify-between gap-2 px-3 py-2 rounded-pill bg-accent border border-border text-xs text-muted-foreground hover:text-foreground hover:border-mainBlue/50 transition-colors"
       >
         <span className="flex items-center gap-2">
           <Command size={13} strokeWidth={2} />
           Jump to page
         </span>
-        <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-surface2 border border-border text-muted">/</kbd>
+        <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-muted border border-border text-muted-foreground">/</kbd>
       </button>
 
       {open && (
@@ -64,11 +64,11 @@ export default function CommandTrigger() {
           onClick={() => setOpen(false)}
         >
           <div
-            className="w-full max-w-md mx-4 rounded-card border border-border bg-surface2 shadow-2xl overflow-hidden"
+            className="w-full max-w-md mx-4 rounded-card border border-border bg-popover shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-              <Command size={15} className="text-muted" />
+              <Command size={15} className="text-muted-foreground" />
               <input
                 ref={inputRef}
                 value={query}
@@ -79,12 +79,12 @@ export default function CommandTrigger() {
                   if (e.key === "Enter") go(activeIdx);
                 }}
                 placeholder="Search pages…"
-                className="flex-1 bg-transparent outline-none text-sm text-text placeholder:text-muted"
+                className="flex-1 bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground"
               />
             </div>
             <div className="max-h-72 overflow-y-auto p-1.5">
               {results.length === 0 && (
-                <div className="px-3 py-6 text-center text-xs text-muted">No pages match "{query}"</div>
+                <div className="px-3 py-6 text-center text-xs text-muted-foreground">No pages match "{query}"</div>
               )}
               {results.map(({ href, label, icon: Icon }, idx) => (
                 <button
@@ -92,10 +92,10 @@ export default function CommandTrigger() {
                   onClick={() => go(idx)}
                   onMouseEnter={() => setActiveIdx(idx)}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-pill text-sm text-left transition-colors ${
-                    idx === activeIdx ? "bg-surface3 text-text" : "text-muted"
+                    idx === activeIdx ? "bg-accent text-foreground" : "text-muted-foreground"
                   }`}
                 >
-                  <Icon size={15} strokeWidth={2} className={idx === activeIdx ? "text-accent" : ""} />
+                  <Icon size={15} strokeWidth={2} className={idx === activeIdx ? "text-mainBlue" : ""} />
                   {label}
                 </button>
               ))}

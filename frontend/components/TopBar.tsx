@@ -26,13 +26,13 @@ export default function TopBar() {
   }, []);
 
   return (
-    <header className="h-14 border-b border-border bg-surface/60 backdrop-blur flex items-center justify-between px-4 md:px-6">
+    <header className="h-14 border-b border-border bg-card/60 backdrop-blur flex items-center justify-between px-4 md:px-6">
       <div className="flex items-center gap-3">
-        <span className="text-sm text-muted">NIFTY</span>
-        <span className="font-mono mono-nums text-sm text-text">24,350.00</span>
+        <span className="text-sm text-muted-foreground">NIFTY</span>
+        <span className="font-mono mono-nums text-sm text-foreground">24,350.00</span>
         <span className="font-mono mono-nums text-xs text-bullish">+0.34%</span>
       </div>
-      <div className="flex items-center gap-2 text-xs text-muted">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span className="hidden sm:inline">Next expiry close in</span>
         <span className="font-mono mono-nums text-warn tabular-nums w-[90px] text-right">{countdown}</span>
       </div>

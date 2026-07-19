@@ -10,11 +10,11 @@ export default function Card({
   className?: string;
 }) {
   return (
-    <div className={`bg-surface border border-border rounded-card p-4 ${className}`}>
+    <div className={`bg-card border border-border rounded-card p-4 ${className}`}>
       {title && (
         <div className="mb-3">
-          <h3 className="font-display font-medium text-sm text-text">{title}</h3>
-          {subtitle && <p className="text-xs text-muted mt-0.5">{subtitle}</p>}
+          <h3 className="font-sans font-medium text-sm text-foreground">{title}</h3>
+          {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
         </div>
       )}
       {children}

@@ -7,13 +7,13 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 function ivColor(iv: number, minIv: number, maxIv: number) {
   const pct = (iv - minIv) / (maxIv - minIv || 1);
-  // interpolate indigo (low) -> amber (mid) -> red (high), matching the accent/warn/bearish tokens
+  // interpolate mainBlue (low) -> amber chart-3 (mid) -> logout red (high), the template's own tokens
   if (pct < 0.5) {
     const t = pct / 0.5;
-    return lerpColor("#6366F1", "#FBBF24", t);
+    return lerpColor("#437DFB", "#E88C30", t);
   }
   const t = (pct - 0.5) / 0.5;
-  return lerpColor("#FBBF24", "#F87171", t);
+  return lerpColor("#E88C30", "#D93036", t);
 }
 function lerpColor(a: string, b: string, t: number) {
   const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
@@ -51,8 +51,8 @@ export default function SurfacePage() {
   return (
     <div className="space-y-4 max-w-6xl">
       <div>
-        <h1 className="font-display text-xl font-medium">Volatility Surface</h1>
-        <p className="text-sm text-muted mt-1">Call IV across strike &amp; expiry, mock multi-expiry chain</p>
+        <h1 className="font-sans text-xl font-medium">Volatility Surface</h1>
+        <p className="text-sm text-muted-foreground mt-1">Call IV across strike &amp; expiry, mock multi-expiry chain</p>
       </div>
 
       <Card title="Implied Volatility Surface (3D)" subtitle="Strike × expiry days × IV, rotate/zoom to inspect">
@@ -63,11 +63,11 @@ export default function SurfacePage() {
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={smile}>
-              <CartesianGrid stroke="#242428" strokeDasharray="3 3" />
-              <XAxis dataKey="strike" stroke="#8B8B92" fontSize={11} />
-              <YAxis stroke="#8B8B92" fontSize={11} unit="%" />
-              <Tooltip contentStyle={{ background: "#0A0A0B", border: "1px solid #242428", fontSize: 12 }} />
-              <Line type="monotone" dataKey="implied_volatility" stroke="#6366F1" strokeWidth={2} dot={{ r: 2 }} name="IV %" />
+              <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
+              <XAxis dataKey="strike" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} unit="%" />
+              <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", fontSize: 12 }} />
+              <Line type="monotone" dataKey="implied_volatility" stroke="#437DFB" strokeWidth={2} dot={{ r: 2 }} name="IV %" />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -78,24 +78,24 @@ export default function SurfacePage() {
           <table className="text-xs font-mono mono-nums border-separate border-spacing-[2px]">
             <thead>
               <tr>
-                <th className="p-1 text-muted text-left">Strike</th>
+                <th className="p-1 text-muted-foreground text-left">Strike</th>
                 {expiries.map((e) => (
-                  <th key={e} className="p-1 text-muted">{e}d</th>
+                  <th key={e} className="p-1 text-muted-foreground">{e}d</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {strikes.map((s) => (
                 <tr key={s}>
-                  <td className="p-1 text-muted text-right pr-2">{s}</td>
+                  <td className="p-1 text-muted-foreground text-right pr-2">{s}</td>
                   {expiries.map((e) => {
                     const iv = grid[`${s}-${e}`];
                     return (
                       <td
                         key={e}
                         title={`${iv?.toFixed(2)}%`}
-                        className="w-12 h-7 text-center rounded text-[10px] text-bg font-medium"
-                        style={{ background: iv !== undefined ? ivColor(iv, minIv, maxIv) : "#242428" }}
+                        className="w-12 h-7 text-center rounded text-[10px] text-background font-medium"
+                        style={{ background: iv !== undefined ? ivColor(iv, minIv, maxIv) : "hsl(var(--border))" }}
                       >
                         {iv !== undefined ? iv.toFixed(1) : "-"}
                       </td>

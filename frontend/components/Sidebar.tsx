@@ -8,12 +8,12 @@ import CommandTrigger from "@/components/CommandPalette";
 export default function Sidebar() {
   const pathname = usePathname();
   return (
-    <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-border bg-surface">
-      <div className="h-14 flex items-center gap-2.5 px-4 border-b border-border">
-        <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center font-display font-bold text-sm shrink-0">Δ</div>
+    <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
+      <div className="h-14 flex items-center gap-2.5 px-4 border-b border-sidebar-border">
+        <div className="w-7 h-7 rounded-lg bg-mainBlue flex items-center justify-center font-sans font-bold text-sm shrink-0 text-white">Δ</div>
         <div className="min-w-0">
-          <div className="font-display font-medium text-sm tracking-tight leading-tight truncate">F&O Analytics</div>
-          <div className="text-[11px] text-muted leading-tight">AlgoLabs · Assignment 2</div>
+          <div className="font-sans font-medium text-sm tracking-tight leading-tight truncate text-sidebar-foreground">F&O Analytics</div>
+          <div className="text-[11px] text-muted-foreground leading-tight">AlgoLabs · Assignment 2</div>
         </div>
       </div>
 
@@ -24,7 +24,7 @@ export default function Sidebar() {
       <nav className="flex-1 px-2 space-y-4 overflow-y-auto">
         {NAV_GROUPS.map((group) => (
           <div key={group.label}>
-            <div className="px-3 pb-1.5 text-[11px] font-medium tracking-wide uppercase text-muted/70">
+            <div className="px-3 pb-1.5 text-[11px] font-medium tracking-wide uppercase text-muted-foreground/70">
               {group.label}
             </div>
             <div className="space-y-0.5">
@@ -35,10 +35,12 @@ export default function Sidebar() {
                     key={href}
                     href={href}
                     className={`focus-ring flex items-center gap-2.5 px-3 py-2 rounded-pill text-sm transition-colors ${
-                      active ? "bg-surface3 text-text" : "text-muted hover:text-text hover:bg-surface2"
+                      active
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-muted-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/60"
                     }`}
                   >
-                    <Icon size={16} strokeWidth={2} className={active ? "text-accent" : ""} />
+                    <Icon size={16} strokeWidth={2} className={active ? "text-sidebar-primary" : ""} />
                     {label}
                   </Link>
                 );
@@ -48,7 +50,7 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="px-4 py-3 border-t border-border flex items-center gap-2 text-xs text-muted">
+      <div className="px-4 py-3 border-t border-sidebar-border flex items-center gap-2 text-xs text-muted-foreground">
         <RefreshCw size={12} />
         Mock data mode
       </div>

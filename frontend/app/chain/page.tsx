@@ -47,8 +47,8 @@ export default function ChainPage() {
   return (
     <div className="space-y-4 max-w-6xl">
       <div>
-        <h1 className="font-display text-xl font-medium">Option Chain</h1>
-        <p className="text-sm text-muted mt-1">
+        <h1 className="font-sans text-xl font-medium">Option Chain</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           {data ? `Spot ${data.spot.toLocaleString()} · Expiry ${data.expiry_days}d · ${data.rows.length} rows` : "Loading..."}
         </p>
       </div>
@@ -56,12 +56,12 @@ export default function ChainPage() {
         <div className="overflow-x-auto -m-4 p-4">
           <table className="w-full text-sm font-mono mono-nums">
             <thead>
-              <tr className="border-b border-border text-left text-muted text-xs">
+              <tr className="border-b border-border text-left text-muted-foreground text-xs">
                 {columns.map((c) => (
                   <th
                     key={c.key}
                     onClick={() => toggleSort(c.key)}
-                    className="focus-ring cursor-pointer select-none py-2 px-2 hover:text-text whitespace-nowrap"
+                    className="focus-ring cursor-pointer select-none py-2 px-2 hover:text-foreground whitespace-nowrap"
                   >
                     {c.label} {sortKey === c.key && (sortDir === 1 ? "↑" : "↓")}
                   </th>
@@ -72,11 +72,11 @@ export default function ChainPage() {
               {rows.map((r, i) => {
                 const isITM = r.option_type === "call" ? r.strike < (data?.spot || 0) : r.strike > (data?.spot || 0);
                 return (
-                  <tr key={i} className={`border-b border-border/50 hover:bg-surface2/40 ${isITM ? "bg-surface2/20" : ""}`}>
+                  <tr key={i} className={`border-b border-border/50 hover:bg-muted/40 ${isITM ? "bg-muted/20" : ""}`}>
                     <td className="py-1.5 px-2">{r.strike}</td>
                     <td className="py-1.5 px-2"><Badge label={r.option_type} /></td>
                     <td className="py-1.5 px-2">{r.last_price.toFixed(2)}</td>
-                    <td className="py-1.5 px-2 text-muted">{r.open_interest.toLocaleString()}</td>
+                    <td className="py-1.5 px-2 text-muted-foreground">{r.open_interest.toLocaleString()}</td>
                     <td className="py-1.5 px-2">{r.implied_volatility.toFixed(2)}</td>
                     <td className="py-1.5 px-2">{r.delta.toFixed(3)}</td>
                     <td className="py-1.5 px-2">{r.gamma.toFixed(4)}</td>
