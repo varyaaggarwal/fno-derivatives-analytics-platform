@@ -7,3 +7,4 @@ pytest
 supabase
 requests
 yfinance
+curl_cffi
