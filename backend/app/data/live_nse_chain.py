@@ -15,13 +15,14 @@ WHAT YOU NEED TO DO MANUALLY:
 2. Run this from a machine with normal internet access (your laptop, or a
    normal cloud VM — NOT a locked-down sandbox).
 3. NSE aggressively rate-limits and occasionally blackholes cloud-provider IP
-   ranges (AWS/GCP/Azure) even with a correct TLS fingerprint. If you deploy
-   the backend on Render/Railway and this starts silently failing, that's
-   why — options are (a) cache aggressively and poll every 3-5s instead of on
-   every request, (b) run this specific fetcher on a small residential-IP box
-   (e.g. your own PC via a scheduled task) and have it push into Supabase,
-   with the deployed backend only ever reading from Supabase, never hitting
-   NSE directly.
+   ranges (AWS/GCP/Azure/Render) even with a correct TLS fingerprint. The
+   deployed backend handles this automatically via app/background_poller.py
+   (runs this fetcher on a timer inside the server process itself, no human
+   needed) writing into Supabase, with request-time reads going through
+   Supabase only (SUPABASE_RELAY=true) -- see main.py. If Render's IP turns
+   out to be blocked at the range level regardless of the TLS impersonation
+   below, set NSE_PROXY_URL (a residential/rotating proxy) as an env var on
+   Render -- no code change needed, this file picks it up automatically.
 4. No API key needed — this is the public endpoint the NSE website itself
    uses. Don't hammer it faster than ~1 req/3sec per symbol or you'll get
    temporarily blocked.
@@ -31,6 +32,7 @@ WHAT YOU NEED TO DO MANUALLY:
    before assuming NSE closed the endpoint entirely.
 """
 from curl_cffi import requests
+import os
 import time
 
 BASE_HEADERS = {
@@ -39,12 +41,21 @@ BASE_HEADERS = {
 }
 IMPERSONATE = "chrome124"
 
+# Optional residential/rotating proxy, e.g. "http://user:pass@gate.proxyprovider.com:8000".
+# Leave NSE_PROXY_URL unset to fetch directly (works if curl_cffi's TLS
+# impersonation alone is enough to get past Akamai). If Render's IP is
+# range-blocked regardless of TLS fingerprint, set this env var on Render --
+# no code change needed, _get_session() below picks it up automatically.
+NSE_PROXY_URL = os.getenv("NSE_PROXY_URL")
+
 
 def _get_session():
     """Warm-up hit to the homepage to receive the cookies the API requires."""
     session = requests.Session(impersonate=IMPERSONATE)
     session.headers.update(BASE_HEADERS)
-    session.get("https://www.nseindia.com", timeout=10)
+    if NSE_PROXY_URL:
+        session.proxies = {"http": NSE_PROXY_URL, "https": NSE_PROXY_URL}
+    session.get("https://www.nseindia.com", timeout=15)
     time.sleep(1)  # NSE flags requests that come in too fast after the warm-up
     return session
 
