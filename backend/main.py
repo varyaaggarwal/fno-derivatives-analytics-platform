@@ -32,6 +32,7 @@ from app.data import supabase_client
 
 LIVE_NSE = os.getenv("LIVE_NSE", "false").lower() == "true"
 SUPABASE_RELAY = os.getenv("SUPABASE_RELAY", "false").lower() == "true"
+BACKGROUND_POLL = os.getenv("BACKGROUND_POLL", "false").lower() == "true"
 RISK_FREE_RATE = 0.065
 
 app = FastAPI(title="F&O Derivatives Analytics API")
@@ -86,9 +87,25 @@ def _enrich_with_greeks(chain_df, spot, expiry_days):
     return pd.concat([calls, puts], ignore_index=True)
 
 
+@app.on_event("startup")
+async def _launch_background_poller():
+    """
+    Starts the NSE->Supabase background loop the instant this server process
+    boots -- no one has to SSH in and run a script. Enable with
+    BACKGROUND_POLL=true (alongside SUPABASE_RELAY=true) in your Render env
+    vars. See app/background_poller.py for the honest caveats (Render
+    free-tier spin-down, NSE's cloud-IP rate limiting).
+    """
+    if BACKGROUND_POLL:
+        import asyncio
+        from app.background_poller import run_forever
+        asyncio.create_task(run_forever())
+
+
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "live_nse": LIVE_NSE, "supabase_configured": supabase_client.is_configured()}
+    return {"status": "ok", "live_nse": LIVE_NSE, "supabase_configured": supabase_client.is_configured(),
+            "supabase_relay": SUPABASE_RELAY, "background_poll": BACKGROUND_POLL}
 
 
 @app.get("/api/chain")
