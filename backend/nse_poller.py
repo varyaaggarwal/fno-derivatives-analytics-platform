@@ -37,19 +37,23 @@ uncomment the load_dotenv() line below if you want that).
 """
 import argparse
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 # from dotenv import load_dotenv; load_dotenv()  # uncomment if you add python-dotenv
 
 from app.data.live_nse_chain import fetch_option_chain, normalize_to_flat_chain, normalize_to_vol_surface
 from app.data import supabase_client
 
+# Fixed UTC+5:30 offset -- correct regardless of what timezone your machine's
+# clock is set to (IST has no daylight savings).
+IST = timezone(timedelta(hours=5, minutes=30))
+
 IST_MARKET_OPEN = (9, 15)
 IST_MARKET_CLOSE = (15, 30)
 
 
 def _within_market_hours(now=None) -> bool:
-    now = now or datetime.now()  # assumes the machine running this is set to IST; adjust if not
+    now = now or datetime.now(IST)
     if now.weekday() >= 5:  # Sat/Sun
         return False
     open_t = now.replace(hour=IST_MARKET_OPEN[0], minute=IST_MARKET_OPEN[1], second=0, microsecond=0)

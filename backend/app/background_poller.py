@@ -31,11 +31,20 @@ on your deployed backend.
 """
 import asyncio
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from app.data import supabase_client
 
 logger = logging.getLogger("background_poller")
+
+# Fixed UTC+5:30 offset -- IST has no daylight savings, so this is always
+# correct regardless of what timezone the server itself is running in.
+# BUG THIS FIXES: Render's containers run in UTC, not IST. The original
+# version of this check used datetime.now() (server-local, i.e. UTC on
+# Render) and compared it directly against 9:15/15:30 as if those were UTC
+# hours -- so it was checking the wrong 6.25-hour window entirely and
+# concluding "market closed" almost all real trading day.
+IST = timezone(timedelta(hours=5, minutes=30))
 
 IST_MARKET_OPEN = (9, 15)
 IST_MARKET_CLOSE = (15, 30)
@@ -43,7 +52,7 @@ POLL_INTERVAL_SECONDS = 30
 
 
 def _within_market_hours(now=None) -> bool:
-    now = now or datetime.now()
+    now = now or datetime.now(IST)
     if now.weekday() >= 5:
         return False
     open_t = now.replace(hour=IST_MARKET_OPEN[0], minute=IST_MARKET_OPEN[1], second=0, microsecond=0)
@@ -85,7 +94,8 @@ async def run_forever():
                 await asyncio.to_thread(_poll_symbol, "NIFTY")
                 await asyncio.to_thread(_poll_symbol, "BANKNIFTY")
             else:
-                logger.debug("outside market hours, idling")
+                logger.info("outside IST market hours (server time now: %s UTC, %s IST), idling",
+                            datetime.utcnow().strftime("%H:%M"), datetime.now(IST).strftime("%H:%M"))
         except Exception:
             logger.exception("background poller loop crashed an iteration -- continuing")
         await asyncio.sleep(POLL_INTERVAL_SECONDS)
