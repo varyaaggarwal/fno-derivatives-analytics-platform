@@ -95,17 +95,35 @@ async def _launch_background_poller():
     BACKGROUND_POLL=true (alongside SUPABASE_RELAY=true) in your Render env
     vars. See app/background_poller.py for the honest caveats (Render
     free-tier spin-down, NSE's cloud-IP rate limiting).
+
+    IMPORTANT: the task is stored on app.state, not discarded -- asyncio only
+    holds a WEAK reference to tasks it runs; if nothing else references the
+    task object, it can be garbage-collected mid-run with no error at all.
+    Keeping app.state.poller_task alive for the life of the app prevents that.
     """
     if BACKGROUND_POLL:
         import asyncio
         from app.background_poller import run_forever
-        asyncio.create_task(run_forever())
+        app.state.poller_task = asyncio.create_task(run_forever())
 
 
 @app.get("/api/health")
 def health():
+    poller_task = getattr(app.state, "poller_task", None)
+    poller_status = "disabled"
+    poller_error = None
+    if poller_task is not None:
+        if poller_task.done():
+            poller_status = "crashed"
+            try:
+                poller_task.result()
+            except Exception as exc:  # noqa: BLE001
+                poller_error = str(exc)
+        else:
+            poller_status = "running"
     return {"status": "ok", "live_nse": LIVE_NSE, "supabase_configured": supabase_client.is_configured(),
-            "supabase_relay": SUPABASE_RELAY, "background_poll": BACKGROUND_POLL}
+            "supabase_relay": SUPABASE_RELAY, "background_poll": BACKGROUND_POLL,
+            "poller_status": poller_status, "poller_error": poller_error}
 
 
 @app.get("/api/chain")
