@@ -25,11 +25,13 @@ from app.core.iv_solver import solve_iv_chain
 from app.core.interpretation import compute_pcr, pcr_card, compute_max_pain, max_pain_card, iv_spike_card, dos_trade_card
 from app.core.pnl_decomposer import decompose_pnl
 from app.core.backtester import run_backtest
+from app.core.dos_strategy import initial_sl_price, trailing_sl_hit
 from app.data.mock_option_chain import generate_chain, generate_vol_surface
 from app.data.mock_bnf_candles import generate_dataset
 from app.data import supabase_client
 
 LIVE_NSE = os.getenv("LIVE_NSE", "false").lower() == "true"
+SUPABASE_RELAY = os.getenv("SUPABASE_RELAY", "false").lower() == "true"
 RISK_FREE_RATE = 0.065
 
 app = FastAPI(title="F&O Derivatives Analytics API")
@@ -44,6 +46,18 @@ app.add_middleware(
 
 def _get_chain_df(expiry_days=6, spot=None):
     """Returns (df, data_source, live_fetch_error) so callers can be honest about which one they got."""
+    if LIVE_NSE and SUPABASE_RELAY:
+        # Deployed-backend-safe path: NSE blocks most cloud IPs (Render/Railway
+        # included), so don't call NSE from here. Read the latest snapshot that
+        # nse_poller.py (run from a real machine) has already written.
+        import pandas as pd
+        snapshot = supabase_client.fetch_latest_chain_snapshot("NIFTY", max_age_seconds=120)
+        if snapshot is not None:
+            df = pd.DataFrame(snapshot["raw_json"])
+            df.attrs["spot"] = snapshot["spot"]
+            return df, "live", None
+        return (generate_chain(spot=spot or 24350.0, expiry_days=expiry_days), "mock",
+                "no Supabase snapshot newer than 120s -- is nse_poller.py running?")
     if LIVE_NSE:
         from app.data.live_nse_chain import fetch_option_chain, normalize_to_flat_chain
         try:
@@ -243,6 +257,71 @@ def get_dos_live_signal():
         "recommended_strike": strike,
         "is_mock": is_mock,
         "live_fetch_error": live_fetch_error,
+    }
+
+
+@app.get("/api/dos/sl-status")
+def get_dos_sl_status(day_type: str, option_type: str, strike: float, entry_premium: float):
+    """
+    Live SL monitor for an open DOS position -- MVP requirement: "Stop-loss
+    monitor tracking initial and trailing SL with live alerts." Previously
+    this logic only ran inside the backtester; nothing tracked an open live
+    position. The frontend calls this once a signal has been "entered"
+    (recommended strike + entry premium from /api/dos/live-signal), passing
+    that entry snapshot back on each poll.
+    day_type: 'Wednesday' or 'Thursday' (sets the 50% vs 100% initial SL band).
+    Returns current premium, both SL levels, and whether either is breached.
+    """
+    from app.core.supertrend import compute_supertrend
+    from datetime import datetime as _dt
+
+    is_mock = True
+    live_fetch_error = None
+    df = None
+    if LIVE_NSE:
+        from app.data.live_bnf_candles import fetch_live_session
+        try:
+            bnf_data = fetch_live_session()
+            df = compute_supertrend(bnf_data, period=10, multiplier=3).dropna(subset=["supertrend"])
+            if df.empty:
+                raise ValueError("no confirmed SuperTrend bar yet")
+            is_mock = False
+        except Exception as exc:
+            live_fetch_error = str(exc)
+    if df is None:
+        df = compute_supertrend(generate_dataset(n_weeks=1), period=10, multiplier=3).dropna(subset=["supertrend"])
+    last = df.iloc[-1]
+
+    current_premium = None
+    premium_source = "mock"
+    if LIVE_NSE and SUPABASE_RELAY:
+        snapshot = supabase_client.fetch_latest_chain_snapshot("BANKNIFTY", max_age_seconds=120)
+        if snapshot is not None:
+            wanted_type = "call" if option_type == "CE" else "put"
+            for row in snapshot["raw_json"]:
+                if row.get("strike") == strike and row.get("option_type") == wanted_type:
+                    current_premium = row.get("last_price")
+                    premium_source = "live"
+                    break
+    if current_premium is None:
+        current_premium = round(entry_premium * np.random.uniform(0.85, 1.15), 2)
+
+    initial_sl = initial_sl_price(entry_premium, day_type)
+    trailing_hit = trailing_sl_hit(last["supertrend"], option_type, last["close"])
+    initial_hit = current_premium >= initial_sl
+
+    return {
+        "current_premium": current_premium,
+        "premium_source": premium_source,
+        "initial_sl_level": round(initial_sl, 2),
+        "initial_sl_breached": bool(initial_hit),
+        "trailing_sl_breached": bool(trailing_hit),
+        "alert": bool(initial_hit or trailing_hit),
+        "exit_reason": "initial_sl" if initial_hit else ("trailing_sl" if trailing_hit else None),
+        "bnf_supertrend": round(float(last["supertrend"]), 1),
+        "is_mock": is_mock or premium_source == "mock",
+        "live_fetch_error": live_fetch_error,
+        "checked_at": _dt.now().isoformat(),
     }
 
 

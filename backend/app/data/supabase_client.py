@@ -89,6 +89,41 @@ def insert_dos_trades(trades: list) -> int:
         return 0
 
 
+def fetch_latest_chain_snapshot(symbol: str = "NIFTY", max_age_seconds: int = 120):
+    """
+    Reads back the most recent option_chain_snapshots row for `symbol`.
+    Used by the SUPABASE_RELAY path in main.py so the deployed backend never
+    calls NSE directly (see nse_poller.py for what writes these rows).
+
+    Returns None if Supabase isn't configured, no row exists, or the latest
+    row is older than max_age_seconds (stale -- caller should fall back to
+    mock rather than show a frozen chain from an hour ago).
+    """
+    client = get_client()
+    if client is None:
+        return None
+    try:
+        res = (client.table("option_chain_snapshots")
+               .select("*")
+               .eq("symbol", symbol)
+               .order("fetched_at", desc=True)
+               .limit(1)
+               .execute())
+        if not res.data:
+            return None
+        row = res.data[0]
+        fetched_at = datetime.fromisoformat(row["fetched_at"].replace("Z", "+00:00"))
+        age = (datetime.now(fetched_at.tzinfo) - fetched_at).total_seconds()
+        if age > max_age_seconds:
+            logger.warning("Latest Supabase snapshot for %s is %.0fs old (>%ds) -- treating as stale",
+                            symbol, age, max_age_seconds)
+            return None
+        return row
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("fetch_latest_chain_snapshot failed: %s", exc)
+        return None
+
+
 def fetch_recent_dos_trades(limit: int = 100) -> list:
     """Read back the most recent persisted DOS trades (for a 'trade history from DB' view)."""
     client = get_client()
