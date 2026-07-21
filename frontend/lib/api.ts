@@ -24,7 +24,7 @@ export interface ChainResponse {
   expiry_days: number;
   timestamp: string;
   rows: ChainRow[];
-  data_source?: string;
+  data_source: string;
   live_fetch_error?: string | null;
 }
 
@@ -77,15 +77,16 @@ export interface DosTrade {
   bhav_copy_verified?: boolean | null;
   pnl_rupees: number;
   cumulative_pnl: number;
+  interpretation?: string;
 }
 
 export interface DosBacktestResponse {
   summary: DosSummary;
   trades: DosTrade[];
-  persisted_to_supabase?: number | null;
-  data_source?: string;
-  sessions_covered?: number;
+  data_source: string;
+  sessions_covered: number;
   live_fetch_error?: string | null;
+  persisted_to_supabase?: number | null;
 }
 
 export interface DosLiveSignal {
@@ -127,7 +128,10 @@ export interface HealthResponse {
   live_nse: boolean;
   live_backend?: string | null;
   supabase_configured: boolean;
+  supabase_relay?: boolean;
+  background_poll?: boolean;
   poller_status?: string;
+  poller_error?: string | null;
 }
 
 export const api = {
