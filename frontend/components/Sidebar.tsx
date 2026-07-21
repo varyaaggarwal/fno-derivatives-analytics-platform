@@ -9,10 +9,16 @@ import { api } from "@/lib/api";
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [liveNse, setLiveNse] = useState<boolean | null>(null);
+  const [health, setHealth] = useState<{ liveNse: boolean | null; backend: string | null }>({
+    liveNse: null,
+    backend: null,
+  });
 
   useEffect(() => {
-    api.health().then((h) => setLiveNse(h.live_nse)).catch(() => setLiveNse(null));
+    api
+      .health()
+      .then((h) => setHealth({ liveNse: h.live_nse, backend: h.live_backend ?? null }))
+      .catch(() => setHealth({ liveNse: null, backend: null }));
   }, []);
 
   return (
@@ -59,7 +65,11 @@ export default function Sidebar() {
 
       <div className="px-4 py-3 border-t border-sidebar-border flex items-center gap-2 text-xs text-muted-foreground">
         <RefreshCw size={12} />
-        {liveNse === null ? "Checking data source…" : liveNse ? "Live NSE data" : "Mock data mode"}
+        {health.liveNse === null
+          ? "Checking data source…"
+          : health.liveNse
+          ? `Live data (${health.backend ?? "unknown"})`
+          : "Mock data mode"}
       </div>
     </aside>
   );

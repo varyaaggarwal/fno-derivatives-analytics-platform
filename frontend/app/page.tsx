@@ -1,6 +1,7 @@
 import Card from "@/components/Card";
 import Badge from "@/components/Badge";
 import GreekGauge from "@/components/GreekGauge";
+import DataSourceBadge from "@/components/DataSourceBadge";
 import { api } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +21,11 @@ export default async function OverviewPage() {
     <div className="space-y-6 max-w-6xl">
       <div>
         <h1 className="font-sans text-xl font-medium">Overview</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          NIFTY spot {chain.spot.toLocaleString()} &middot; nearest expiry {chain.expiry_days}d &middot; snapshot mock data
+        <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+          <span>
+            NIFTY spot {chain.spot.toLocaleString()} &middot; nearest expiry {chain.expiry_days}d
+          </span>
+          <DataSourceBadge dataSource={chain.data_source} liveFetchError={chain.live_fetch_error} />
         </p>
       </div>
 

@@ -42,6 +42,50 @@ def download_bhavcopy_fo(date: datetime):
     return df
 
 
+def fetch_settle_price(session_date: datetime, symbol: str, expiry_date: datetime,
+                        strike: float, option_type: str):
+    """
+    Looks up the actual settlement/closing premium for one option contract
+    (symbol/expiry/strike/type) on session_date from that day's F&O Bhav Copy.
+
+    Used by app.core.backtester as an opportunistic cross-check on
+    market-close exits: Bhav Copy is EOD-only (see module docstring), so it
+    can't drive the 5-min intraday SuperTrend signal or intraday SL checks --
+    those still need live_bnf_candles.py -- but a market-close exit's premium
+    IS an end-of-day price, which Bhav Copy actually has. When the real
+    settle price is available it's a strictly better number than the flat-IV
+    Black-Scholes estimate the backtester otherwise falls back to.
+
+    COLUMN NAMES ARE UNVERIFIED against NSE's current UDiFF file (see the
+    module docstring's warning) -- confirm SYMBOL/EXPIRY_DT/STRIKE_PR/
+    OPTION_TYP/CLOSE against a real downloaded file before trusting this in
+    production; this is written defensively (returns None rather than
+    raising) so a schema drift degrades to the existing BS estimate instead
+    of crashing the backtest.
+    """
+    try:
+        df = download_bhavcopy_fo(session_date)
+        df.columns = [c.strip().upper() for c in df.columns]
+        mask = (
+            (df.get("SYMBOL", "").astype(str).str.strip() == symbol)
+            & (df["OPTION_TYP"].astype(str).str.strip() == option_type)
+            & (df["STRIKE_PR"].astype(float) == float(strike))
+        )
+        if "EXPIRY_DT" in df.columns:
+            expiry_str = expiry_date.strftime("%d-%b-%Y").upper()
+            mask &= df["EXPIRY_DT"].astype(str).str.strip().str.upper() == expiry_str
+        matches = df[mask]
+        if matches.empty:
+            return None
+        close_col = "CLOSE" if "CLOSE" in matches.columns else "SETTLE_PR"
+        return float(matches.iloc[0][close_col])
+    except Exception:
+        # Any failure (network, schema drift, no row for this contract) just
+        # means "no Bhav Copy cross-check available today" -- never crash the
+        # backtest over it.
+        return None
+
+
 if __name__ == "__main__":
     df = download_bhavcopy_fo(datetime(2026, 7, 3))
     print(df.head())

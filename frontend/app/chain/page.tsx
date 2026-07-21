@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, ChainResponse, ChainRow } from "@/lib/api";
 import Card from "@/components/Card";
 import Badge from "@/components/Badge";
+import DataSourceBadge from "@/components/DataSourceBadge";
 
 type SortKey = keyof ChainRow;
 
@@ -48,8 +49,9 @@ export default function ChainPage() {
     <div className="space-y-4 max-w-6xl">
       <div>
         <h1 className="font-sans text-xl font-medium">Option Chain</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {data ? `Spot ${data.spot.toLocaleString()} · Expiry ${data.expiry_days}d · ${data.rows.length} rows` : "Loading..."}
+        <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+          <span>{data ? `Spot ${data.spot.toLocaleString()} · Expiry ${data.expiry_days}d · ${data.rows.length} rows` : "Loading..."}</span>
+          {data && <DataSourceBadge dataSource={data.data_source} liveFetchError={data.live_fetch_error} />}
         </p>
       </div>
       <Card>

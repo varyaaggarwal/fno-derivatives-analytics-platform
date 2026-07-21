@@ -24,6 +24,8 @@ export interface ChainResponse {
   expiry_days: number;
   timestamp: string;
   rows: ChainRow[];
+  data_source?: string;
+  live_fetch_error?: string | null;
 }
 
 export interface InterpretationCard {
@@ -72,6 +74,7 @@ export interface DosTrade {
   premium_sold: number;
   premium_exit: number;
   exit_reason: string;
+  bhav_copy_verified?: boolean | null;
   pnl_rupees: number;
   cumulative_pnl: number;
 }
@@ -79,16 +82,37 @@ export interface DosTrade {
 export interface DosBacktestResponse {
   summary: DosSummary;
   trades: DosTrade[];
+  persisted_to_supabase?: number | null;
+  data_source?: string;
+  sessions_covered?: number;
+  live_fetch_error?: string | null;
 }
 
 export interface DosLiveSignal {
+  active: boolean;
   day_type: string;
-  bnf_fut: number;
-  supertrend: number;
-  trend: "up" | "down";
+  bnf_fut: number | null;
+  supertrend: number | null;
+  trend: "up" | "down" | null;
   signal: "CE" | "PE" | null;
   recommended_strike: number | null;
+  recommended_premium: number | null;
   is_mock: boolean;
+  live_fetch_error?: string | null;
+}
+
+export interface DosSlStatus {
+  current_premium: number;
+  premium_source: string;
+  initial_sl_level: number;
+  initial_sl_breached: boolean;
+  trailing_sl_breached: boolean;
+  alert: boolean;
+  exit_reason: string | null;
+  bnf_supertrend: number;
+  is_mock: boolean;
+  live_fetch_error?: string | null;
+  checked_at: string;
 }
 
 export interface VolSurfaceRow {
@@ -101,7 +125,9 @@ export interface VolSurfaceRow {
 export interface HealthResponse {
   status: string;
   live_nse: boolean;
+  live_backend?: string | null;
   supabase_configured: boolean;
+  poller_status?: string;
 }
 
 export const api = {
@@ -109,7 +135,9 @@ export const api = {
   chain: (expiryDays = 6, spot = 24350) => getJSON<ChainResponse>(`/api/chain?expiry_days=${expiryDays}&spot=${spot}`),
   interpretation: (expiryDays = 6, spot = 24350) => getJSON<InterpretationResponse>(`/api/interpretation?expiry_days=${expiryDays}&spot=${spot}`),
   pnlDecompose: (strike = 24350) => getJSON<PnlDecomposeResponse>(`/api/pnl-decompose?strike=${strike}`),
-  dosBacktest: (weeks = 8) => getJSON<DosBacktestResponse>(`/api/dos/backtest?n_weeks=${weeks}`),
+  dosBacktest: (weeks = 8, persist = false) => getJSON<DosBacktestResponse>(`/api/dos/backtest?n_weeks=${weeks}&persist=${persist}`),
   dosLiveSignal: () => getJSON<DosLiveSignal>(`/api/dos/live-signal`),
-  volSurface: (spot = 24350) => getJSON<{ spot: number; rows: VolSurfaceRow[]; data_source?: string }>(`/api/vol-surface?spot=${spot}`),
+  dosSlStatus: (dayType: string, optionType: string, strike: number, entryPremium: number) =>
+    getJSON<DosSlStatus>(`/api/dos/sl-status?day_type=${encodeURIComponent(dayType)}&option_type=${optionType}&strike=${strike}&entry_premium=${entryPremium}`),
+  volSurface: (spot = 24350) => getJSON<{ spot: number; rows: VolSurfaceRow[]; data_source?: string; live_fetch_error?: string | null }>(`/api/vol-surface?spot=${spot}`),
 };

@@ -25,7 +25,12 @@ export default function PnlPage() {
     <div className="space-y-4 max-w-4xl">
       <div>
         <h1 className="font-sans text-xl font-medium">P&L Decomposer</h1>
-        <p className="text-sm text-muted-foreground mt-1">Short 1 lot ATM NIFTY Call &middot; spot +0.8%, IV +1.3pts, 1 day passes</p>
+        <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+          <span>Short 1 lot ATM NIFTY Call &middot; spot +0.8%, IV +1.3pts, 1 day passes</span>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border font-mono bg-muted/40 text-muted-foreground border-muted-foreground/30">
+            FIXED SAMPLE SCENARIO
+          </span>
+        </p>
       </div>
 
       <Card title="Attribution by Greek">

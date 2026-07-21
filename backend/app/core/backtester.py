@@ -42,10 +42,18 @@ def _option_premium(fut_price, strike, bar_time, option_type):
     return float(bs_price(fut_price, strike, T, RISK_FREE_RATE, ASSUMED_IV, option_type=bsm_type))
 
 
-def run_backtest(raw_df):
+def run_backtest(raw_df, use_bhav_copy=False, bhav_symbol="BANKNIFTY"):
     """
     raw_df: concatenated 5-min OHLC dataframe from mock_bnf_candles.generate_dataset(),
             with columns [timestamp, open, high, low, close, volume, day_type, session_date].
+    use_bhav_copy: when True, for each market-close exit, opportunistically
+        look up the real settlement premium from that day's F&O Bhav Copy
+        (see app.data.live_bhav_copy.fetch_settle_price) and prefer it over
+        the flat-IV Black-Scholes estimate when a matching contract row is
+        found. Off by default: mock session_dates are synthetic and won't
+        match any real archive date, and Bhav Copy requires real network
+        access to nseindia.com that isn't available in every environment --
+        this degrades silently to the BS estimate whenever no row is found.
     Returns (trade_log_df, summary_dict).
     """
     df = raw_df.sort_values("timestamp").reset_index(drop=True)
@@ -88,6 +96,18 @@ def run_backtest(raw_df):
             exit_row = day_df.iloc[-1]
             exit_reason = "market_close"
             premium_exit = _option_premium(exit_row["close"], strike, exit_row["timestamp"], option_type)
+            bhav_copy_verified = False
+            if use_bhav_copy:
+                from ..data.live_bhav_copy import fetch_settle_price
+                settle = fetch_settle_price(
+                    session_date=exit_row["timestamp"], symbol=bhav_symbol,
+                    expiry_date=exit_row["timestamp"], strike=strike, option_type=option_type,
+                )
+                if settle is not None:
+                    premium_exit = settle
+                    bhav_copy_verified = True
+        else:
+            bhav_copy_verified = None  # SL exits aren't EOD prices; Bhav Copy has nothing to offer there
 
         pnl_points = premium_sold - premium_exit  # short position: profit if premium falls
 
@@ -108,6 +128,7 @@ def run_backtest(raw_df):
             "supertrend_at_entry": round(entry_row["supertrend"], 1),
             "premium_sold": round(premium_sold, 2), "premium_exit": round(premium_exit, 2),
             "exit_reason": exit_reason,
+            "bhav_copy_verified": bhav_copy_verified,
             "pnl_points": round(pnl_points, 2), "pnl_rupees": round(pnl_points * LOT_SIZE, 2),
             "delta_pnl": round(attribution["delta_pnl"], 2), "gamma_pnl": round(attribution["gamma_pnl"], 2),
             "theta_pnl": round(attribution["theta_pnl"], 2), "vega_pnl": round(attribution["vega_pnl"], 2),

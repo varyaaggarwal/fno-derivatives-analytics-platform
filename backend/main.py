@@ -74,6 +74,30 @@ def _get_chain_df(expiry_days=6, spot=None):
     return generate_chain(spot=spot or 24350.0, expiry_days=expiry_days), "mock", None
 
 
+def _apply_iv_solver(chain_df, spot, expiry_days):
+    """
+    Overwrites implied_volatility with our own reverse-BSM solve (Brent's
+    method, iv_solver.solve_iv_chain) from last_price -- MVP requirement:
+    "Implied Volatility solver using reverse Black-Scholes Model with
+    Brent's method." Previously this function existed but nothing called
+    it, so every IV shown came straight from the feed (NSE/Upstox/mock)
+    instead of our own solver. Falls back to the feed's own IV wherever
+    Brent's method can't bracket a root (e.g. a stale/zero last_price, or
+    deep ITM/OTM where price is nearly insensitive to sigma).
+    """
+    T = expiry_days / 365.0
+    solved = solve_iv_chain(
+        chain_df["last_price"].values, spot, chain_df["strike"].values, T,
+        RISK_FREE_RATE, chain_df["option_type"].values,
+    )
+    solved_pct = solved * 100
+    feed_iv = chain_df["implied_volatility"].values
+    out = chain_df.copy()
+    out.attrs = chain_df.attrs
+    out["implied_volatility"] = np.where(np.isnan(solved_pct), feed_iv, solved_pct)
+    return out
+
+
 def _enrich_with_greeks(chain_df, spot, expiry_days):
     T = expiry_days / 365.0
     calls = chain_df[chain_df.option_type == "call"].reset_index(drop=True)
@@ -121,7 +145,9 @@ def health():
                 poller_error = str(exc)
         else:
             poller_status = "running"
-    return {"status": "ok", "live_nse": LIVE_NSE, "supabase_configured": supabase_client.is_configured(),
+    from app.data.data_source import backend_name
+    return {"status": "ok", "live_nse": LIVE_NSE, "live_backend": backend_name() if LIVE_NSE else None,
+            "supabase_configured": supabase_client.is_configured(),
             "supabase_relay": SUPABASE_RELAY, "background_poll": BACKGROUND_POLL,
             "poller_status": poller_status, "poller_error": poller_error}
 
@@ -131,6 +157,7 @@ def get_chain(expiry_days: int = 6, spot: float = 24350.0):
     """Option chain with Greeks for every strike -- MVP requirement #1 and #2."""
     chain, data_source, live_fetch_error = _get_chain_df(expiry_days, spot)
     actual_spot = chain.attrs.get("spot", spot)
+    chain = _apply_iv_solver(chain, actual_spot, expiry_days)
     enriched = _enrich_with_greeks(chain, actual_spot, expiry_days)
     rows = enriched.round(4).to_dict(orient="records")
 
@@ -201,12 +228,15 @@ def get_pnl_decompose(strike: float = 24350, spot_move_pct: float = 0.8, iv_chan
 
 
 @app.get("/api/dos/backtest")
-def get_dos_backtest(n_weeks: int = 8, persist: bool = False):
+def get_dos_backtest(n_weeks: int = 8, persist: bool = False, use_bhav_copy: bool = False):
     """
     DOS strategy backtest -- MVP requires >= 4 weeks; default gives 8.
     Set persist=true to also write the trade log to Supabase's dos_trade_log
     table (off by default so repeated dashboard loads don't duplicate rows --
     call it explicitly, e.g. once per session, or wire a "Save to DB" button).
+    Set use_bhav_copy=true to cross-check market-close exit premiums against
+    the real NSE F&O Bhav Copy where a matching contract row exists (see
+    app.core.backtester.run_backtest and app.data.live_bhav_copy).
     """
     data_source = "mock"
     live_fetch_error = None
@@ -222,7 +252,7 @@ def get_dos_backtest(n_weeks: int = 8, persist: bool = False):
             live_fetch_error = str(exc)
     if bnf_data is None:
         bnf_data = generate_dataset(n_weeks=n_weeks)
-    trade_log, summary = run_backtest(bnf_data)
+    trade_log, summary = run_backtest(bnf_data, use_bhav_copy=use_bhav_copy)
     trade_log_out = trade_log.copy()
     for col in ["session_date", "entry_time", "exit_time"]:
         trade_log_out[col] = trade_log_out[col].astype(str)
@@ -258,10 +288,22 @@ def get_dos_live_signal():
     """
     from app.core.supertrend import compute_supertrend
     from app.core.dos_strategy import select_strike, get_signal
-    from datetime import datetime
+    from app.core.black_scholes import bs_price
+    from datetime import datetime, time as dtime
 
     today = datetime.now()
-    day_type = "Wednesday" if today.weekday() == 2 else "Thursday" if today.weekday() == 3 else "Wednesday"
+    # MVP: "active on Wednesday and Thursday only." Previously this endpoint
+    # ran every day of the week and silently defaulted day_type to
+    # "Wednesday" on Mon/Tue/Fri instead of reporting itself inactive.
+    if today.weekday() not in (2, 3):  # Mon=0 .. Wed=2, Thu=3 .. Sun=6
+        return {
+            "active": False,
+            "day_type": today.strftime("%A"),
+            "bnf_fut": None, "supertrend": None, "trend": None, "signal": None,
+            "recommended_strike": None, "recommended_premium": None,
+            "is_mock": True, "live_fetch_error": None,
+        }
+    day_type = "Wednesday" if today.weekday() == 2 else "Thursday"
 
     is_mock = True
     live_fetch_error = None
@@ -284,13 +326,29 @@ def get_dos_live_signal():
     last = df.iloc[-1]
     signal = get_signal(last["close"], last["supertrend"])
     strike = select_strike(last["supertrend"]) if signal else None
+
+    # MVP: "recommended CE or PE strike with premium on signal" -- previously
+    # only the strike was computed, never the premium. Same-day (0DTE)
+    # assumption and ASSUMED_IV, consistent with the backtester in
+    # app/core/backtester.py (no live options premium feed available).
+    premium = None
+    if strike is not None:
+        ASSUMED_IV = 0.14
+        close_dt = datetime.combine(today.date(), dtime(15, 30))
+        minutes_remaining = max((close_dt - today).total_seconds() / 60.0, 1.0)
+        T = minutes_remaining / (375 * 252)
+        bsm_type = "call" if signal == "CE" else "put"
+        premium = round(float(bs_price(last["close"], strike, T, RISK_FREE_RATE, ASSUMED_IV, option_type=bsm_type)), 2)
+
     return {
+        "active": True,
         "day_type": day_type,
         "bnf_fut": round(float(last["close"]), 1),
         "supertrend": round(float(last["supertrend"]), 1),
         "trend": "up" if last["trend"] == 1 else "down",
         "signal": signal,
         "recommended_strike": strike,
+        "recommended_premium": premium,
         "is_mock": is_mock,
         "live_fetch_error": live_fetch_error,
     }

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, VolSurfaceRow } from "@/lib/api";
 import Card from "@/components/Card";
 import VolSurface3D from "@/components/VolSurface3D";
+import DataSourceBadge from "@/components/DataSourceBadge";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 function ivColor(iv: number, minIv: number, maxIv: number) {
@@ -25,8 +26,14 @@ function lerpColor(a: string, b: string, t: number) {
 
 export default function SurfacePage() {
   const [rows, setRows] = useState<VolSurfaceRow[]>([]);
+  const [dataSource, setDataSource] = useState<string | undefined>();
+  const [liveFetchError, setLiveFetchError] = useState<string | null | undefined>();
   useEffect(() => {
-    api.volSurface().then((d) => setRows(d.rows.filter((r) => r.option_type === "call")));
+    api.volSurface().then((d) => {
+      setRows(d.rows.filter((r) => r.option_type === "call"));
+      setDataSource(d.data_source);
+      setLiveFetchError(d.live_fetch_error);
+    });
   }, []);
 
   const { strikes, expiries, grid, minIv, maxIv } = useMemo(() => {
@@ -52,7 +59,10 @@ export default function SurfacePage() {
     <div className="space-y-4 max-w-6xl">
       <div>
         <h1 className="font-sans text-xl font-medium">Volatility Surface</h1>
-        <p className="text-sm text-muted-foreground mt-1">Call IV across strike &amp; expiry, mock multi-expiry chain</p>
+        <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+          <span>Call IV across strike &amp; expiry</span>
+          <DataSourceBadge dataSource={dataSource} liveFetchError={liveFetchError} />
+        </p>
       </div>
 
       <Card title="Implied Volatility Surface (3D)" subtitle="Strike × expiry days × IV, rotate/zoom to inspect">

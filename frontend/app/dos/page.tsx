@@ -1,18 +1,77 @@
 "use client";
 import { useEffect, useState } from "react";
-import { api, DosBacktestResponse, DosLiveSignal } from "@/lib/api";
+import { api, DosBacktestResponse, DosLiveSignal, DosSlStatus } from "@/lib/api";
 import Card from "@/components/Card";
 import Badge from "@/components/Badge";
+import DataSourceBadge from "@/components/DataSourceBadge";
+import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+
+interface OpenPosition {
+  dayType: string;
+  optionType: string;
+  strike: number;
+  entryPremium: number;
+}
 
 export default function DosPage() {
   const [signal, setSignal] = useState<DosLiveSignal | null>(null);
   const [backtest, setBacktest] = useState<DosBacktestResponse | null>(null);
+  const [position, setPosition] = useState<OpenPosition | null>(null);
+  const [slStatus, setSlStatus] = useState<DosSlStatus | null>(null);
+  const [persistState, setPersistState] = useState<"idle" | "saving" | "done" | "error">("idle");
 
   useEffect(() => {
     api.dosLiveSignal().then(setSignal).catch(console.error);
     api.dosBacktest(8).then(setBacktest).catch(console.error);
   }, []);
+
+  // SL monitor: once a position is "entered", poll /api/dos/sl-status --
+  // MVP requirement: "Stop-loss monitor with visual alert for both initial
+  // and trailing SL." Previously this endpoint existed on the backend but
+  // nothing on the frontend ever called it.
+  useEffect(() => {
+    if (!position) return;
+    let cancelled = false;
+    function poll() {
+      if (!position) return;
+      api
+        .dosSlStatus(position.dayType, position.optionType, position.strike, position.entryPremium)
+        .then((s) => {
+          if (!cancelled) setSlStatus(s);
+        })
+        .catch(console.error);
+    }
+    poll();
+    const id = setInterval(poll, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [position]);
+
+  function enterTrade() {
+    if (!signal || !signal.signal || !signal.recommended_strike || !signal.recommended_premium) return;
+    setPosition({
+      dayType: signal.day_type,
+      optionType: signal.signal,
+      strike: signal.recommended_strike,
+      entryPremium: signal.recommended_premium,
+    });
+    setSlStatus(null);
+  }
+
+  async function saveToSupabase() {
+    setPersistState("saving");
+    try {
+      const result = await api.dosBacktest(8, true);
+      setBacktest(result);
+      setPersistState("done");
+    } catch (e) {
+      console.error(e);
+      setPersistState("error");
+    }
+  }
 
   const equityData = backtest?.trades.map((t, i) => ({ trade: i + 1, pnl: t.cumulative_pnl })) || [];
 
@@ -23,38 +82,124 @@ export default function DosPage() {
         <p className="text-sm text-muted-foreground mt-1">Direction of SuperTrend &middot; Bank Nifty Futures &middot; Wed/Thu expiry, 5-min SuperTrend(10,3)</p>
       </div>
 
-      <Card title="Live Signal Panel" subtitle={signal?.is_mock ? "Mock feed — swap for a live BNF futures feed" : undefined}>
-        {signal ? (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 items-center">
-            <div>
-              <div className="text-[11px] text-muted-foreground">BNF Fut</div>
-              <div className="font-mono mono-nums text-lg">{signal.bnf_fut.toLocaleString()}</div>
-            </div>
-            <div>
-              <div className="text-[11px] text-muted-foreground">SuperTrend</div>
-              <div className="font-mono mono-nums text-lg">{signal.supertrend.toLocaleString()}</div>
-            </div>
-            <div>
-              <div className="text-[11px] text-muted-foreground">Trend</div>
-              <Badge label={signal.trend === "up" ? "bullish" : "bearish"} />
-            </div>
-            <div>
-              <div className="text-[11px] text-muted-foreground">Signal</div>
-              {signal.signal ? <Badge label={signal.signal} /> : <span className="text-muted-foreground text-sm">None</span>}
-            </div>
-            <div>
-              <div className="text-[11px] text-muted-foreground">Recommended Strike</div>
-              <div className="font-mono mono-nums text-lg text-mainBlue">{signal.recommended_strike ?? "-"}</div>
-            </div>
+      <Card
+        title="Live Signal Panel"
+        subtitle={
+          signal && signal.active && signal.is_mock
+            ? "Mock feed — swap for a live BNF futures feed"
+            : signal && !signal.active
+            ? "Inactive today"
+            : undefined
+        }
+      >
+        {!signal ? (
+          <div className="text-muted-foreground text-sm">Loading signal...</div>
+        ) : !signal.active ? (
+          <div className="text-sm text-muted-foreground">
+            DOS is only active on Wednesday and Thursday (Bank Nifty weekly expiry days). Today is{" "}
+            <span className="text-foreground">{signal.day_type}</span> — no live signal to show.
           </div>
         ) : (
-          <div className="text-muted-foreground text-sm">Loading signal...</div>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-4 items-center">
+              <div>
+                <div className="text-[11px] text-muted-foreground">BNF Fut</div>
+                <div className="font-mono mono-nums text-lg">{signal.bnf_fut?.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-[11px] text-muted-foreground">SuperTrend</div>
+                <div className="font-mono mono-nums text-lg">{signal.supertrend?.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-[11px] text-muted-foreground">Trend</div>
+                <Badge label={signal.trend === "up" ? "bullish" : "bearish"} />
+              </div>
+              <div>
+                <div className="text-[11px] text-muted-foreground">Signal</div>
+                {signal.signal ? <Badge label={signal.signal} /> : <span className="text-muted-foreground text-sm">None</span>}
+              </div>
+              <div>
+                <div className="text-[11px] text-muted-foreground">Recommended Strike</div>
+                <div className="font-mono mono-nums text-lg text-mainBlue">{signal.recommended_strike ?? "-"}</div>
+              </div>
+              <div>
+                <div className="text-[11px] text-muted-foreground">Premium</div>
+                <div className="font-mono mono-nums text-lg text-mainBlue">
+                  {signal.recommended_premium !== null ? `₹${signal.recommended_premium.toFixed(2)}` : "-"}
+                </div>
+              </div>
+            </div>
+            {signal.signal && signal.recommended_strike && signal.recommended_premium && !position && (
+              <Button size="sm" variant="secondary" onClick={enterTrade}>
+                Enter Trade &amp; Start SL Monitor
+              </Button>
+            )}
+          </div>
         )}
       </Card>
 
+      {position && (
+        <Card
+          title="Stop-Loss Monitor"
+          subtitle={`Short ${position.optionType} ${position.strike} @ ₹${position.entryPremium.toFixed(2)} entry`}
+        >
+          {!slStatus ? (
+            <div className="text-muted-foreground text-sm">Checking SL levels...</div>
+          ) : (
+            <div className="space-y-3">
+              {slStatus.alert && (
+                <div className="px-3 py-2 rounded bg-bearish/10 border border-bearish/30 text-bearish text-sm font-medium">
+                  ⚠ Alert: {slStatus.exit_reason === "initial_sl" ? "Initial SL breached" : "Trailing SL breached"} — exit recommended
+                </div>
+              )}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                  <div className="text-[11px] text-muted-foreground">Current Premium</div>
+                  <div className="font-mono mono-nums text-lg">₹{slStatus.current_premium.toFixed(2)}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground">Initial SL Level</div>
+                  <div className={`font-mono mono-nums text-lg ${slStatus.initial_sl_breached ? "text-bearish" : "text-foreground"}`}>
+                    ₹{slStatus.initial_sl_level.toFixed(2)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground">Trailing SL</div>
+                  <Badge label={slStatus.trailing_sl_breached ? "bearish" : "neutral"} />
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground">Data</div>
+                  <DataSourceBadge dataSource={slStatus.is_mock ? "mock" : "live"} liveFetchError={slStatus.live_fetch_error} />
+                </div>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => { setPosition(null); setSlStatus(null); }}>
+                Exit / Stop Monitoring
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
+
       {backtest && (
         <>
-          <Card title="Backtest Summary" subtitle="8 weeks, Wed + Thu expiry sessions">
+          <Card
+            title="Backtest Summary"
+            subtitle={`${backtest.sessions_covered ?? 8} weeks, Wed + Thu expiry sessions`}
+          >
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <DataSourceBadge dataSource={backtest.data_source} liveFetchError={backtest.live_fetch_error} />
+              <div className="flex items-center gap-2">
+                {backtest.persisted_to_supabase != null && (
+                  <span className="text-xs text-muted-foreground">
+                    Saved {backtest.persisted_to_supabase} trades to Supabase
+                  </span>
+                )}
+                <Button size="sm" variant="secondary" onClick={saveToSupabase} isLoading={persistState === "saving"}>
+                  Save Trade Log to Supabase
+                </Button>
+                {persistState === "error" && <span className="text-xs text-bearish">Save failed</span>}
+              </div>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               <Stat label="Trades" value={backtest.summary.total_trades.toString()} />
               <Stat label="Win Rate" value={`${backtest.summary.win_rate_pct}%`} good={backtest.summary.win_rate_pct >= 50} />
@@ -102,7 +247,10 @@ export default function DosPage() {
                       <td className="py-1.5 px-2"><Badge label={t.option_type} /></td>
                       <td className="py-1.5 px-2">{t.strike}</td>
                       <td className="py-1.5 px-2">{t.premium_sold.toFixed(2)}</td>
-                      <td className="py-1.5 px-2">{t.premium_exit.toFixed(2)}</td>
+                      <td className="py-1.5 px-2">
+                        {t.premium_exit.toFixed(2)}
+                        {t.bhav_copy_verified && <span className="ml-1 text-bullish" title="Cross-checked against NSE Bhav Copy">✓</span>}
+                      </td>
                       <td className="py-1.5 px-2 text-muted-foreground">{t.exit_reason}</td>
                       <td className={`py-1.5 px-2 ${t.pnl_rupees >= 0 ? "text-bullish" : "text-bearish"}`}>
                         ₹{t.pnl_rupees.toLocaleString()}

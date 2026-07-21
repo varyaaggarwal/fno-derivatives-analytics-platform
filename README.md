@@ -54,7 +54,8 @@ excel_report/
 
 backend/main.py
   FastAPI app: /api/chain, /api/vol-surface, /api/interpretation,
-  /api/pnl-decompose, /api/dos/backtest, /api/dos/live-signal.
+  /api/pnl-decompose, /api/dos/backtest, /api/dos/live-signal,
+  /api/dos/sl-status, /api/dos/history.
   LIVE_NSE=true env var switches from mock to app/data/data_source.py, which
   fetches from Upstox if UPSTOX_ACCESS_TOKEN is set (the deployed-backend
   path -- doesn't get IP-blocked like NSE does) or falls back to
@@ -87,6 +88,11 @@ python generate_excel_report.py     # regenerate the Excel report
   actually works once deployed; `live_nse_chain.py` stays in the codebase as
   a fallback for local/non-cloud runs. Both normalize to the exact same flat
   schema, so nothing in `app/core/` changes either way.
+- **Implied volatility is solved, not trusted from the feed**: `/api/chain`
+  runs every row's `last_price` back through our own reverse-BSM solver
+  (`app/core/iv_solver.py`, Brent's method) via `main._apply_iv_solver`, and
+  uses the solved sigma (not the feed's own IV field) for the Greeks shown.
+  Falls back to the feed's IV only where Brent's method can't bracket a root.
 - **DOS backtest**: NSE's live option-chain API is a snapshot only, and the
   Bhav Copy is end-of-day only — neither has 5-min intraday history for BNF
   futures. The backtester runs against **statistically realistic mock 5-min
@@ -94,6 +100,14 @@ python generate_excel_report.py     # regenerate the Excel report
   DOS logic is fully built and testable now. For a real backtest, source
   5-min BNF futures history from a vendor (Kite Connect historical API,
   Global Datafeeds) and feed it into `run_backtest()` unchanged.
+- **Bhav Copy's actual role**: since Bhav Copy is EOD-only it can't drive the
+  intraday signal, but a market-close exit's premium IS an end-of-day price.
+  `/api/dos/backtest?use_bhav_copy=true` opportunistically looks up the real
+  settlement premium for each market-close exit (`app/data/live_bhav_copy.py`
+  `fetch_settle_price`) and prefers it over the flat-IV BS estimate when a
+  matching contract row is found; off by default because mock session dates
+  won't match any real archive date and the exact NSE UDiFF column names are
+  unverified (see that file's docstring) until run against a real download.
 - **Backtest option pricing**: since no historical options premium feed
   exists either, the sold CE/PE premium is priced via the same BSM engine at
   a flat assumed IV (14%) — stated explicitly rather than hidden. Swap
