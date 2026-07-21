@@ -60,15 +60,15 @@ def _get_chain_df(expiry_days=6, spot=None):
         return (generate_chain(spot=spot or 24350.0, expiry_days=expiry_days), "mock",
                 "no Supabase snapshot newer than 120s -- is nse_poller.py running?")
     if LIVE_NSE:
-        from app.data.live_nse_chain import fetch_option_chain, normalize_to_flat_chain
+        from app.data.data_source import fetch_flat_chain
         try:
-            raw = fetch_option_chain("NIFTY")
-            df = normalize_to_flat_chain(raw)
+            df, backend = fetch_flat_chain("NIFTY")
             df.attrs.setdefault("expiry_days", expiry_days)
-            return df, "live", None
+            return df, f"live-{backend}", None
         except Exception as exc:
-            # NSE blocks/rate-limits cloud IPs often (see live_nse_chain.py) --
-            # degrade to mock instead of 500ing the whole dashboard.
+            # Either backend can throw (NSE blocks/rate-limits cloud IPs,
+            # Upstox tokens expire daily) -- degrade to mock instead of
+            # 500ing the whole dashboard.
             live_fetch_error = str(exc)
             return generate_chain(spot=spot or 24350.0, expiry_days=expiry_days), "mock", live_fetch_error
     return generate_chain(spot=spot or 24350.0, expiry_days=expiry_days), "mock", None
@@ -135,7 +135,7 @@ def get_chain(expiry_days: int = 6, spot: float = 24350.0):
     rows = enriched.round(4).to_dict(orient="records")
 
     # Cache the snapshot in Supabase (no-op if SUPABASE_URL isn't configured).
-    symbol = "NIFTY" if data_source == "live" else "MOCK_NIFTY"
+    symbol = "NIFTY" if data_source.startswith("live") else "MOCK_NIFTY"
     supabase_client.cache_chain_snapshot(
         symbol=symbol, spot=float(actual_spot),
         expiry_date=date.today() + timedelta(days=expiry_days), raw_rows=rows,
@@ -155,15 +155,16 @@ def get_chain(expiry_days: int = 6, spot: float = 24350.0):
 def get_vol_surface(spot: float = 24350.0):
     """Multi-expiry IV grid for the vol surface / smile view."""
     if LIVE_NSE:
-        from app.data.live_nse_chain import fetch_option_chain, normalize_to_vol_surface
+        from app.data.data_source import fetch_vol_surface
         try:
-            raw = fetch_option_chain("NIFTY")
-            surface = normalize_to_vol_surface(raw)
+            surface, backend = fetch_vol_surface("NIFTY")
             actual_spot = surface.attrs.get("spot", spot)
-            return {"spot": actual_spot, "rows": surface.round(4).to_dict(orient="records"), "data_source": "live"}
+            return {"spot": actual_spot, "rows": surface.round(4).to_dict(orient="records"),
+                    "data_source": f"live-{backend}"}
         except Exception as exc:
-            # Fall through to mock rather than 500ing the dashboard -- NSE
-            # rate-limits/blocks are common, see live_nse_chain.py docstring.
+            # Fall through to mock rather than 500ing the dashboard -- either
+            # backend can throw (NSE blocks, Upstox token expiry), see
+            # live_nse_chain.py / upstox_chain.py docstrings.
             surface = generate_vol_surface(spot=spot)
             return {"spot": spot, "rows": surface.round(4).to_dict(orient="records"),
                     "data_source": "mock", "live_fetch_error": str(exc)}

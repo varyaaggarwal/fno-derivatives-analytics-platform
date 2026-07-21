@@ -40,9 +40,13 @@ backend/app/core/
 backend/app/data/
   mock_option_chain.py  NSE-shaped mock option chain + multi-expiry vol surface
   mock_bnf_candles.py   Mock 5-min BNF futures candles (see "Data notes" below)
+  live_nse_chain.py     Direct NSE scrape (curl_cffi) -- fallback backend, blocked on most cloud IPs
+  upstox_chain.py       Upstox API v2 option chain fetcher -- PREFERRED live backend on a deployed server
+  data_source.py         Router: picks upstox_chain.py if UPSTOX_ACCESS_TOKEN is set, else live_nse_chain.py
 
 backend/tests/
-  test_black_scholes.py Put-call parity, known BSM value, IV round-trip, Greek sanity checks
+  test_black_scholes.py  Put-call parity, known BSM value, IV round-trip, Greek sanity checks
+  test_upstox_chain.py   Upstox normalizer (mocked response, no live call) + data_source routing logic
 
 excel_report/
   generate_excel_report.py  Builds FnO_Analytics_Report.xlsx (chain+Greeks, vol smile/surface,
@@ -51,8 +55,10 @@ excel_report/
 backend/main.py
   FastAPI app: /api/chain, /api/vol-surface, /api/interpretation,
   /api/pnl-decompose, /api/dos/backtest, /api/dos/live-signal.
-  LIVE_NSE=true env var switches from mock to live_nse_chain.py (untested
-  in this dev environment -- verify from a machine with real network access).
+  LIVE_NSE=true env var switches from mock to app/data/data_source.py, which
+  fetches from Upstox if UPSTOX_ACCESS_TOKEN is set (the deployed-backend
+  path -- doesn't get IP-blocked like NSE does) or falls back to
+  live_nse_chain.py's direct NSE scrape otherwise.
 
 frontend/
   Next.js 14 + Tailwind + Recharts. Dark trading-terminal design (see
@@ -75,8 +81,12 @@ python generate_excel_report.py     # regenerate the Excel report
 - **Option chain**: mocked with NSE-matching field names (`strikePrice`,
   `openInterest`, `lastPrice`, `impliedVolatility` conceptually — flattened
   here to `strike`, `open_interest`, `last_price`, `implied_volatility`).
-  Swapping in a live NSE session fetch only requires replacing
-  `generate_chain()`'s return value — nothing downstream changes.
+  Live data comes from Upstox's API v2 (`app/data/upstox_chain.py`) when
+  `UPSTOX_ACCESS_TOKEN` is set — NSE's own API blocks/rate-limits most
+  cloud-provider IPs (including Render's), so Upstox is the backend that
+  actually works once deployed; `live_nse_chain.py` stays in the codebase as
+  a fallback for local/non-cloud runs. Both normalize to the exact same flat
+  schema, so nothing in `app/core/` changes either way.
 - **DOS backtest**: NSE's live option-chain API is a snapshot only, and the
   Bhav Copy is end-of-day only — neither has 5-min intraday history for BNF
   futures. The backtester runs against **statistically realistic mock 5-min
@@ -111,16 +121,21 @@ Overview page, styled after the FnO deck's own "Risk Dashboard" gauge icons.
 
 ## Manual steps to go live (not done yet)
 
-1. **Live NSE data**: run `backend/app/data/live_nse_chain.py` from a machine
-   with real network access (not a sandboxed CI environment), verify it
-   returns real data, then set `LIVE_NSE=true` when starting the backend.
+1. **Live option chain data**: generate an access token at
+   https://upstox.com/developer/apps, set `UPSTOX_ACCESS_TOKEN` and
+   `LIVE_NSE=true` as env vars on your deployed backend (Render). That's the
+   whole switch -- `app/data/data_source.py` picks Upstox automatically over
+   the NSE fallback whenever the token is present. **Upstox tokens expire
+   daily (~3:30 AM IST)** -- regenerate and re-set it each trading morning,
+   or the app quietly falls back to `live_nse_chain.py` (and then mock, if
+   that's blocked too) until you do.
 2. **Supabase**: create a project, run `supabase/schema.sql`, fill in `.env`
    from `.env.example`. Nothing currently writes to it yet -- next step is
    wiring `main.py` to cache chain snapshots and persist DOS trades there.
 3. **Deploy frontend**: push to GitHub (already done), import into Vercel,
    set `NEXT_PUBLIC_API_BASE` to your deployed backend URL.
-4. **Deploy backend**: Render or Railway, set `LIVE_NSE` and Supabase env
-   vars there.
+4. **Deploy backend**: Render or Railway, set `LIVE_NSE`, `UPSTOX_ACCESS_TOKEN`,
+   and Supabase env vars there.
 5. **DOS backtest historical data**: still mock (see data notes above) --
    needs a paid intraday vendor or forward data collection.
 6. **One-pager report**: not written yet.

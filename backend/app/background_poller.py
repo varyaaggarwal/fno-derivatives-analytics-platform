@@ -10,21 +10,21 @@ startup hook wired into main.py). As long as your Render service is
 running, this loop is running -- no one has to do anything by hand.
 
 HONEST CAVEAT (read this before assuming it "just works"):
-This still calls NSE from wherever the backend is deployed (Render), and
-NSE's Akamai bot-management does rate-limit/occasionally block cloud IP
-ranges -- that risk doesn't go away just because the fetch moved from your
-laptop into the server process. What this DOES fix is the "I can't predict
-when they'll load the app" problem: the loop runs continuously regardless
-of whether anyone is visiting, so by the time someone opens the dashboard
-there's already a recent snapshot in Supabase for them to read (or, if NSE
-has been blocking Render's IP, an honest data_source: mock instead of a
-crash). Two things worth doing for real reliability:
+This calls whichever backend app/data/data_source.py selects -- Upstox if
+UPSTOX_ACCESS_TOKEN is set on Render, otherwise NSE directly (which, unlike
+Upstox, does rate-limit/occasionally block cloud IP ranges regardless of
+where the fetch runs from -- see live_nse_chain.py). What this loop fixes,
+independent of which backend is active, is the "I can't predict when
+they'll load the app" problem: it runs continuously regardless of whether
+anyone is visiting, so by the time someone opens the dashboard there's
+already a recent snapshot in Supabase for them to read (or, if the active
+backend is failing, an honest data_source: mock instead of a crash). Two
+things worth doing for real reliability:
   1. Use a Render plan that keeps the instance always-on (free-tier
      services spin down after inactivity, which pauses this loop too).
-  2. If Render's IP turns out to be reliably blocked, run nse_poller.py
-     from your own machine as backup during your actual demo window --
-     both write to the same Supabase table, so whichever one last
-     succeeded is what gets served.
+  2. Upstox access tokens expire daily (~3:30 AM IST) -- regenerate
+     UPSTOX_ACCESS_TOKEN each trading morning, or this loop silently falls
+     back to NSE (or mock, if NSE is also blocked) until you do.
 
 Enable with the BACKGROUND_POLL=true env var (alongside SUPABASE_RELAY=true)
 on your deployed backend.
@@ -61,20 +61,19 @@ def _within_market_hours(now=None) -> bool:
 
 
 def _poll_symbol(symbol: str) -> bool:
-    from app.data.live_nse_chain import fetch_option_chain, normalize_to_flat_chain
+    from app.data.data_source import fetch_flat_chain
     try:
-        raw = fetch_option_chain(symbol)
-        flat = normalize_to_flat_chain(raw)
+        flat, backend = fetch_flat_chain(symbol)
         spot = flat.attrs["spot"]
         ok = supabase_client.cache_chain_snapshot(
             symbol=symbol, spot=float(spot),
             expiry_date=date.today() + timedelta(days=6),
             raw_rows=flat.round(4).to_dict(orient="records"),
         )
-        logger.info("background poll %s: spot=%s rows=%d supabase=%s", symbol, spot, len(flat), ok)
+        logger.info("background poll %s: backend=%s spot=%s rows=%d supabase=%s", symbol, backend, spot, len(flat), ok)
         return ok
     except Exception as exc:
-        # Never let a bad NSE response take the server down -- log and move on,
+        # Never let a bad response take the server down -- log and move on,
         # the next loop iteration (or the mock fallback in main.py) covers it.
         logger.warning("background poll %s failed: %s", symbol, exc)
         return False
