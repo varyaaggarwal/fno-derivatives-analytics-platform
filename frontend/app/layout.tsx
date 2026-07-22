@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
+import StatusBar from "@/components/StatusBar";
 
 export const metadata: Metadata = {
   title: "F&O Derivatives Analytics Platform",
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="flex-1 flex flex-col min-w-0">
             <TopBar />
             <main className="flex-1 p-4 md:p-6 overflow-x-hidden">{children}</main>
+            <StatusBar />
           </div>
         </div>
       </body>

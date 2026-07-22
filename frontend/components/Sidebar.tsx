@@ -65,11 +65,7 @@ export default function Sidebar() {
 
       <div className="px-4 py-3 border-t border-sidebar-border flex items-center gap-2 text-xs text-muted-foreground">
         <RefreshCw size={12} />
-        {health.liveNse === null
-          ? "Checking data source…"
-          : health.liveNse
-          ? `Live data (${health.backend ?? "unknown"})`
-          : "Mock data mode"}
+        {health.liveNse === null ? "Checking data source…" : health.liveNse ? "Live data" : "Mock data mode"}
       </div>
     </aside>
   );

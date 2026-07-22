@@ -1,19 +1,36 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { api, ChainResponse, ChainRow } from "@/lib/api";
+import { api, ChainResponse, ChainRow, InterpretationResponse } from "@/lib/api";
 import Card from "@/components/Card";
 import Badge from "@/components/Badge";
 import DataSourceBadge from "@/components/DataSourceBadge";
+import MarketInterpretationPanel from "@/components/MarketInterpretationPanel";
+import OiByStrikeChart from "@/components/OiByStrikeChart";
 
 type SortKey = keyof ChainRow;
 
+function formatOi(v: number): string {
+  return `${(v / 10000000).toFixed(2)} Cr`;
+}
+
+function StatCard({ label, value, valueClassName }: { label: string; value: string; valueClassName?: string }) {
+  return (
+    <div className="bg-card border border-border rounded-card px-4 py-3">
+      <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className={`font-mono mono-nums text-xl mt-1 ${valueClassName || ""}`}>{value}</div>
+    </div>
+  );
+}
+
 export default function ChainPage() {
   const [data, setData] = useState<ChainResponse | null>(null);
+  const [interp, setInterp] = useState<InterpretationResponse | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("strike");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
 
   useEffect(() => {
     api.chain().then(setData).catch(console.error);
+    api.interpretation().then(setInterp).catch(console.error);
   }, []);
 
   const rows = useMemo(() => {
@@ -24,6 +41,49 @@ export default function ChainPage() {
       return sortDir * ((av as number) - (bv as number));
     });
   }, [data, sortKey, sortDir]);
+
+  // Strikes closest to spot first, so the side-by-side chain opens ATM instead of at the lowest strike.
+  const strikesNearSpot = useMemo(() => {
+    if (!data) return [];
+    const strikes = [...new Set(data.rows.map((r) => r.strike))];
+    return strikes.sort((a, b) => Math.abs(a - data.spot) - Math.abs(b - data.spot)).slice(0, 20).sort((a, b) => a - b);
+  }, [data]);
+
+  const byStrike = useMemo(() => {
+    const m = new Map<number, { call?: ChainRow; put?: ChainRow }>();
+    if (!data) return m;
+    for (const r of data.rows) {
+      const entry = m.get(r.strike) || {};
+      if (r.option_type === "call") entry.call = r;
+      else entry.put = r;
+      m.set(r.strike, entry);
+    }
+    return m;
+  }, [data]);
+
+  const atmStrike = useMemo(() => {
+    if (!data || data.rows.length === 0) return null;
+    return data.rows.reduce((best, r) => (Math.abs(r.strike - data.spot) < Math.abs(best.strike - data.spot) ? r : best))
+      .strike;
+  }, [data]);
+
+  const atmIv = useMemo(() => {
+    if (atmStrike === null) return null;
+    const entry = byStrike.get(atmStrike);
+    const ivs = [entry?.call?.implied_volatility, entry?.put?.implied_volatility].filter(
+      (v): v is number => v !== undefined
+    );
+    return ivs.length ? ivs.reduce((a, b) => a + b, 0) / ivs.length : null;
+  }, [atmStrike, byStrike]);
+
+  const callOiTotal = useMemo(
+    () => (data ? data.rows.filter((r) => r.option_type === "call").reduce((s, r) => s + r.open_interest, 0) : 0),
+    [data]
+  );
+  const putOiTotal = useMemo(
+    () => (data ? data.rows.filter((r) => r.option_type === "put").reduce((s, r) => s + r.open_interest, 0) : 0),
+    [data]
+  );
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) setSortDir((d) => (d === 1 ? -1 : 1));
@@ -46,7 +106,7 @@ export default function ChainPage() {
   ];
 
   return (
-    <div className="space-y-4 max-w-6xl">
+    <div className="space-y-4 max-w-[1400px]">
       <div>
         <h1 className="font-sans text-xl font-medium">Option Chain</h1>
         <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
@@ -54,7 +114,91 @@ export default function ChainPage() {
           {data && <DataSourceBadge dataSource={data.data_source} liveFetchError={data.live_fetch_error} />}
         </p>
       </div>
-      <Card>
+
+      {/* Summary strip -- spot, PCR, max pain, ATM strike/IV, OI totals, chain bias */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
+        <StatCard label="Nifty Spot" value={data ? data.spot.toLocaleString() : "--"} valueClassName="text-warn" />
+        <StatCard label="PCR" value={interp ? String(interp.pcr.value) : "--"} />
+        <StatCard label="Max Pain" value={interp ? Number(interp.max_pain.value).toFixed(0) : "--"} />
+        <StatCard label="ATM Strike" value={atmStrike !== null ? String(atmStrike) : "--"} />
+        <StatCard label="ATM IV" value={atmIv !== null ? `${atmIv.toFixed(1)}%` : "--"} />
+        <StatCard label="Call OI" value={data ? formatOi(callOiTotal) : "--"} />
+        <StatCard label="Put OI" value={data ? formatOi(putOiTotal) : "--"} />
+        <div className="bg-card border border-border rounded-card px-4 py-3">
+          <div className="text-[11px] text-muted-foreground uppercase tracking-wide">Chain Bias</div>
+          <div className="mt-1">{interp ? <Badge label={interp.pcr.sentiment || "neutral"} /> : "--"}</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        {/* Side-by-side calls | strike | puts, ATM-centered -- the classic NSE chain read */}
+        <Card
+          title="Option Chain"
+          subtitle={data ? `${data.expiry_days}d expiry · ATM-centered, ±20 strikes` : undefined}
+          className="xl:col-span-2"
+        >
+          <div className="overflow-x-auto -m-4 p-4">
+            <table className="w-full text-xs font-mono mono-nums">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th colSpan={4} className="py-1.5 text-center font-sans font-medium text-bullish">CALLS</th>
+                  <th className="py-1.5"></th>
+                  <th colSpan={4} className="py-1.5 text-center font-sans font-medium text-bearish">PUTS</th>
+                </tr>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="py-1.5 px-1.5">OI</th>
+                  <th className="py-1.5 px-1.5">LTP</th>
+                  <th className="py-1.5 px-1.5">IV%</th>
+                  <th className="py-1.5 px-1.5">Delta</th>
+                  <th className="py-1.5 px-2 text-center">Strike</th>
+                  <th className="py-1.5 px-1.5">Delta</th>
+                  <th className="py-1.5 px-1.5">IV%</th>
+                  <th className="py-1.5 px-1.5">LTP</th>
+                  <th className="py-1.5 px-1.5">OI</th>
+                </tr>
+              </thead>
+              <tbody>
+                {strikesNearSpot.map((strike) => {
+                  const { call, put } = byStrike.get(strike) || {};
+                  const isAtm = strike === atmStrike;
+                  return (
+                    <tr
+                      key={strike}
+                      className={`border-b border-border/50 hover:bg-muted/40 ${isAtm ? "bg-mainBlue/10" : ""}`}
+                    >
+                      <td className="py-1.5 px-1.5 text-muted-foreground">{call ? call.open_interest.toLocaleString() : "--"}</td>
+                      <td className="py-1.5 px-1.5 text-bullish">{call ? call.last_price.toFixed(2) : "--"}</td>
+                      <td className="py-1.5 px-1.5">{call ? call.implied_volatility.toFixed(1) : "--"}</td>
+                      <td className="py-1.5 px-1.5">{call ? call.delta.toFixed(2) : "--"}</td>
+                      <td className="py-1.5 px-2 text-center font-sans font-medium text-foreground">{strike}</td>
+                      <td className="py-1.5 px-1.5">{put ? put.delta.toFixed(2) : "--"}</td>
+                      <td className="py-1.5 px-1.5">{put ? put.implied_volatility.toFixed(1) : "--"}</td>
+                      <td className="py-1.5 px-1.5 text-bearish">{put ? put.last_price.toFixed(2) : "--"}</td>
+                      <td className="py-1.5 px-1.5 text-muted-foreground">{put ? put.open_interest.toLocaleString() : "--"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        <div className="space-y-4">
+          <Card title="Market Interpretation" subtitle="Plain-language chain read">
+            {interp ? (
+              <MarketInterpretationPanel pcr={interp.pcr} maxPain={interp.max_pain} ivSpike={interp.iv_spike} />
+            ) : (
+              <p className="text-xs text-muted-foreground">Loading…</p>
+            )}
+          </Card>
+          <Card title="OI by Strike" subtitle="Call OI (green) vs Put OI (red)">
+            {data ? <OiByStrikeChart rows={data.rows} spot={data.spot} /> : <p className="text-xs text-muted-foreground">Loading…</p>}
+          </Card>
+        </div>
+      </div>
+
+      {/* Full sortable chain with Greeks, kept for anyone who needs the detail view */}
+      <Card title="Full Chain (Greeks)" subtitle="Every strike, sortable">
         <div className="overflow-x-auto -m-4 p-4">
           <table className="w-full text-sm font-mono mono-nums">
             <thead>

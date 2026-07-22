@@ -135,19 +135,21 @@ Overview page, styled after the FnO deck's own "Risk Dashboard" gauge icons.
 
 ## Manual steps to go live (not done yet)
 
-1. **Live option chain data**: generate an access token at
-   https://upstox.com/developer/apps, set `UPSTOX_ACCESS_TOKEN` and
-   `LIVE_NSE=true` as env vars on your deployed backend (Render). That's the
-   whole switch -- `app/data/data_source.py` picks Upstox automatically over
-   the NSE fallback whenever the token is present. **Upstox tokens expire
-   daily (~3:30 AM IST)** -- Upstox has no long-lived refresh token, so a
-   fresh login (username/password + TOTP) through their hosted login page is
-   unavoidable once per trading day. `backend/scripts/refresh_upstox_token.py`
-   automates everything *after* that login: exchange the authorization code
-   for an access token, and (if `RENDER_API_KEY` + `RENDER_SERVICE_ID` are
-   set) push it straight into Render's env vars via Render's API so you
-   don't have to open the dashboard. See that script's docstring for the
-   exact daily steps. Skip this token expiry entirely with option 2 below.
+1. **Live option chain data**: Upstox now offers an **Analytics Token**
+   (Developer Apps > Analytics tab) -- a read-only token valid for **1 year**,
+   generated with one click, no OAuth login flow. Use this: generate it once,
+   set `UPSTOX_ACCESS_TOKEN` and `LIVE_NSE=true` as env vars on your deployed
+   backend (Render), and you're done -- `app/data/upstox_chain.py` sends it
+   as the same `Authorization: Bearer <token>` header either way, so nothing
+   else changes. This replaces the old daily-refresh workflow entirely; skip
+   the rest of this point.
+   (Fallback, only relevant if you ever need the standard OAuth token instead
+   -- e.g. for write/trade-capable access -- that token expires daily at
+   ~3:30 AM IST and requires a fresh login through Upstox's hosted login
+   page each morning. `backend/scripts/refresh_upstox_token.py` automates
+   the token-exchange step after that login, and can push the result
+   straight to Render via Render's API if `RENDER_API_KEY` +
+   `RENDER_SERVICE_ID` are set.)
 2. **Supabase**: create a project, run `supabase/schema.sql`, fill in `.env`
    from `.env.example`. Nothing currently writes to it yet -- next step is
    wiring `main.py` to cache chain snapshots and persist DOS trades there.
