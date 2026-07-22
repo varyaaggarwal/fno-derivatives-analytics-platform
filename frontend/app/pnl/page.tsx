@@ -5,13 +5,36 @@ import Card from "@/components/Card";
 import Badge from "@/components/Badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from "recharts";
 
+import { Skeleton, SkeletonBlock } from "@/components/Skeleton";
+
 export default function PnlPage() {
   const [data, setData] = useState<PnlDecomposeResponse | null>(null);
   useEffect(() => {
     api.pnlDecompose().then(setData).catch(console.error);
   }, []);
 
-  if (!data) return <div className="text-muted-foreground text-sm">Loading...</div>;
+  if (!data) {
+    return (
+      <div className="space-y-4 max-w-4xl">
+        <div>
+          <h1 className="font-sans text-xl font-medium">P&L Decomposer</h1>
+          <Skeleton className="h-4 w-72 mt-2" />
+        </div>
+        <div className="bg-card border border-border rounded-card p-4">
+          <Skeleton className="h-4 w-40 mb-3" />
+          <SkeletonBlock className="h-72 w-full" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-card p-4">
+              <Skeleton className="h-4 w-24 mb-3" />
+              <Skeleton className="h-7 w-20" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const chartData = [
     { name: "Delta", value: data.delta_pnl },

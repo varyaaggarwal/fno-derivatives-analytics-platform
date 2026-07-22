@@ -7,6 +7,7 @@ import DataSourceBadge from "@/components/DataSourceBadge";
 import MarketInterpretationPanel from "@/components/MarketInterpretationPanel";
 import OiByStrikeChart from "@/components/OiByStrikeChart";
 import InfoTooltip from "@/components/InfoTooltip";
+import { Skeleton, SkeletonStatCard, SkeletonLine, SkeletonBlock, SkeletonTableRows } from "@/components/Skeleton";
 
 type SortKey = keyof ChainRow;
 
@@ -123,26 +124,36 @@ export default function ChainPage() {
       <div>
         <h1 className="font-sans text-xl font-medium">Option Chain</h1>
         <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
-          <span>{data ? `Spot ${data.spot.toLocaleString()} · Expiry ${data.expiry_days}d · ${data.rows.length} rows` : "Loading..."}</span>
+          {data ? (
+            <span>{`Spot ${data.spot.toLocaleString()} · Expiry ${data.expiry_days}d · ${data.rows.length} rows`}</span>
+          ) : (
+            <SkeletonLine className="w-72" />
+          )}
           {data && <DataSourceBadge dataSource={data.data_source} liveFetchError={data.live_fetch_error} />}
         </p>
       </div>
 
       {/* Summary strip -- spot, PCR, max pain, ATM strike/IV, OI totals, chain bias */}
       <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
-        <StatCard label="Nifty Spot" value={data ? data.spot.toLocaleString() : "--"} valueClassName="text-warn" info="Current NIFTY 50 index level, used as the reference price for ATM strike, ITM/OTM shading, and IV calculations." />
-        <StatCard label="PCR" value={interp ? String(interp.pcr.value) : "--"} info="Put-Call Ratio: total put OI divided by total call OI. Above 1.3 is typically read as bullish, below 0.7 as bearish." />
-        <StatCard label="Max Pain" value={interp ? Number(interp.max_pain.value).toFixed(0) : "--"} info="The strike where option writers as a group lose the least at expiry. Price often drifts toward this level near expiry." />
-        <StatCard label="ATM Strike" value={atmStrike !== null ? String(atmStrike) : "--"} info="The strike closest to the current spot price -- the 'at the money' reference strike." />
-        <StatCard label="ATM IV" value={atmIv !== null ? `${atmIv.toFixed(1)}%` : "--"} info="Average implied volatility of the call and put at the ATM strike. Higher means the market expects bigger moves." />
-        <StatCard label="Call OI" value={data ? formatOi(callOiTotal) : "--"} info="Total open interest (in crore contracts) across all call strikes -- a proxy for how much capital is positioned on the call side." />
-        <StatCard label="Put OI" value={data ? formatOi(putOiTotal) : "--"} info="Total open interest (in crore contracts) across all put strikes -- a proxy for how much capital is positioned on the put side." />
-        <InfoTooltip text="Overall directional lean read from the Put-Call Ratio: more put OI skews bullish, more call OI skews bearish." className="block">
-          <div className="hover-glow bg-card border border-border rounded-card px-4 py-3 cursor-help">
-            <div className="text-[11px] text-muted-foreground uppercase tracking-wide">Chain Bias</div>
-            <div className="mt-1">{interp ? <Badge label={interp.pcr.sentiment || "neutral"} /> : "--"}</div>
-          </div>
-        </InfoTooltip>
+        {!data ? (
+          Array.from({ length: 8 }).map((_, i) => <SkeletonStatCard key={i} />)
+        ) : (
+          <>
+            <StatCard label="Nifty Spot" value={data.spot.toLocaleString()} valueClassName="text-warn" info="Current NIFTY 50 index level, used as the reference price for ATM strike, ITM/OTM shading, and IV calculations." />
+            <StatCard label="PCR" value={interp ? String(interp.pcr.value) : "--"} info="Put-Call Ratio: total put OI divided by total call OI. Above 1.3 is typically read as bullish, below 0.7 as bearish." />
+            <StatCard label="Max Pain" value={interp ? Number(interp.max_pain.value).toFixed(0) : "--"} info="The strike where option writers as a group lose the least at expiry. Price often drifts toward this level near expiry." />
+            <StatCard label="ATM Strike" value={atmStrike !== null ? String(atmStrike) : "--"} info="The strike closest to the current spot price -- the 'at the money' reference strike." />
+            <StatCard label="ATM IV" value={atmIv !== null ? `${atmIv.toFixed(1)}%` : "--"} info="Average implied volatility of the call and put at the ATM strike. Higher means the market expects bigger moves." />
+            <StatCard label="Call OI" value={formatOi(callOiTotal)} info="Total open interest (in crore contracts) across all call strikes -- a proxy for how much capital is positioned on the call side." />
+            <StatCard label="Put OI" value={formatOi(putOiTotal)} info="Total open interest (in crore contracts) across all put strikes -- a proxy for how much capital is positioned on the put side." />
+            <InfoTooltip text="Overall directional lean read from the Put-Call Ratio: more put OI skews bullish, more call OI skews bearish." className="block">
+              <div className="hover-glow bg-card border border-border rounded-card px-4 py-3 cursor-help">
+                <div className="text-[11px] text-muted-foreground uppercase tracking-wide">Chain Bias</div>
+                <div className="mt-1">{interp ? <Badge label={interp.pcr.sentiment || "neutral"} /> : <Skeleton className="h-5 w-16" />}</div>
+              </div>
+            </InfoTooltip>
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -154,6 +165,9 @@ export default function ChainPage() {
           className="xl:col-span-2"
         >
           <div className="overflow-x-auto -m-4 p-4">
+            {!data ? (
+              <SkeletonTableRows rows={14} cols={9} />
+            ) : (
             <table className="w-full text-xs font-mono mono-nums">
               <thead>
                 <tr className="border-b border-border text-muted-foreground">
@@ -196,6 +210,7 @@ export default function ChainPage() {
                 })}
               </tbody>
             </table>
+            )}
           </div>
         </Card>
 
@@ -204,11 +219,15 @@ export default function ChainPage() {
             {interp ? (
               <MarketInterpretationPanel pcr={interp.pcr} maxPain={interp.max_pain} ivSpike={interp.iv_spike} />
             ) : (
-              <p className="text-xs text-muted-foreground">Loading…</p>
+              <div className="space-y-3 py-1">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
             )}
           </Card>
           <Card title="OI by Strike" subtitle="Call OI (green) vs Put OI (red)" info="Open interest per strike near spot. Tall bars mark strikes with heavy positioning -- often acting as support (put walls) or resistance (call walls).">
-            {data ? <OiByStrikeChart rows={data.rows} spot={data.spot} /> : <p className="text-xs text-muted-foreground">Loading…</p>}
+            {data ? <OiByStrikeChart rows={data.rows} spot={data.spot} /> : <SkeletonBlock className="h-56 w-full" />}
           </Card>
         </div>
       </div>
@@ -216,6 +235,9 @@ export default function ChainPage() {
       {/* Full sortable chain with Greeks, kept for anyone who needs the detail view */}
       <Card title="Full Chain (Greeks)" subtitle="Every strike, sortable" info="Every strike with full Greeks -- click any column header to sort. Shaded rows are in-the-money.">
         <div className="overflow-x-auto -m-4 p-4">
+          {!data ? (
+            <SkeletonTableRows rows={10} cols={9} />
+          ) : (
           <table className="w-full text-sm font-mono mono-nums">
             <thead>
               <tr className="border-b border-border text-left text-muted-foreground text-xs">
@@ -250,6 +272,7 @@ export default function ChainPage() {
               })}
             </tbody>
           </table>
+          )}
         </div>
       </Card>
     </div>

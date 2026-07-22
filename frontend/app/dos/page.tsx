@@ -7,6 +7,8 @@ import DataSourceBadge from "@/components/DataSourceBadge";
 import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 
+import { Skeleton, SkeletonBlock } from "@/components/Skeleton";
+
 interface OpenPosition {
   dayType: string;
   optionType: string;
@@ -102,7 +104,14 @@ export default function DosPage() {
         }
       >
         {!signal ? (
-          <div className="text-muted-foreground text-sm">Loading signal...</div>
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i}>
+                <Skeleton className="h-2.5 w-16 mb-2" />
+                <Skeleton className="h-6 w-14" />
+              </div>
+            ))}
+          </div>
         ) : !signal.active ? (
           <div className="text-sm text-muted-foreground">
             DOS is only active on Wednesday and Thursday (Bank Nifty weekly expiry days). Today is{" "}
@@ -188,6 +197,23 @@ export default function DosPage() {
             </div>
           )}
         </Card>
+      )}
+
+      {!backtest && (
+        <div className="bg-card border border-border rounded-card p-4 space-y-4">
+          <div>
+            <Skeleton className="h-4 w-40 mb-3" />
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i}>
+                  <Skeleton className="h-6 w-16 mb-1.5" />
+                  <Skeleton className="h-2.5 w-14" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <SkeletonBlock className="h-64 w-full" />
+        </div>
       )}
 
       {backtest && (

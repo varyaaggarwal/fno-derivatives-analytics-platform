@@ -2,6 +2,7 @@
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
 import type { VolSurfaceRow } from "@/lib/api";
+import { Skeleton } from "@/components/Skeleton";
 
 // react-plotly.js (and the plotly.js it wraps) touches `window`/`self` at
 // import time, which crashes Next's server-side prerender. Deferring the
@@ -22,7 +23,7 @@ export default function VolSurface3D({ rows }: { rows: VolSurfaceRow[] }) {
   }, [rows]);
 
   if (empty) {
-    return <div className="h-[420px] flex items-center justify-center text-muted-foreground text-sm">Loading surface data…</div>;
+    return <Skeleton className="h-[420px] w-full" />;
   }
 
   return (
