@@ -1,4 +1,5 @@
 "use client";
+import InfoTooltip from "@/components/InfoTooltip";
 
 /**
  * Signature visual for the platform: a semicircular gauge per Greek, deliberately
@@ -15,6 +16,7 @@ export default function GreekGauge({
   max,
   color,
   decimals = 2,
+  info,
 }: {
   symbol: string;
   label: string;
@@ -23,6 +25,7 @@ export default function GreekGauge({
   max: number;
   color: string;
   decimals?: number;
+  info?: string;
 }) {
   const format = (v: number) => v.toFixed(decimals);
   const clamped = Math.max(min, Math.min(max, value));
@@ -42,7 +45,7 @@ export default function GreekGauge({
   const needleY = cy + needleLen * Math.sin(needleAngleRad);
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="hover-glow flex flex-col items-center rounded-card border border-transparent p-1.5">
       <svg viewBox="0 0 100 62" className="w-full max-w-[140px]">
         <path
           d={`M ${arcStart.x} ${arcStart.y} A ${radius} ${radius} 0 0 1 ${arcEnd.x} ${arcEnd.y}`}
@@ -65,7 +68,13 @@ export default function GreekGauge({
         </text>
       </svg>
       <div className="font-mono mono-nums text-sm text-foreground -mt-1">{format(value)}</div>
-      <div className="text-[11px] text-muted-foreground">{label}</div>
+      {info ? (
+        <InfoTooltip text={info}>
+          <div className="text-[11px] text-muted-foreground cursor-help underline decoration-dotted underline-offset-2">{label}</div>
+        </InfoTooltip>
+      ) : (
+        <div className="text-[11px] text-muted-foreground">{label}</div>
+      )}
     </div>
   );
 }

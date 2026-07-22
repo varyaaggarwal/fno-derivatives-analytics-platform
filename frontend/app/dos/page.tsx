@@ -84,6 +84,7 @@ export default function DosPage() {
 
       <Card
         title="Live Signal Panel"
+        info="Direction of SuperTrend on Bank Nifty futures: sell a call when price is above SuperTrend, sell a put when it's below, only on Wed/Thu expiry days from 9:20 AM."
         subtitle={
           signal && signal.active && signal.is_mock
             ? "Mock feed — swap for a live BNF futures feed"
@@ -141,6 +142,7 @@ export default function DosPage() {
       {position && (
         <Card
           title="Stop-Loss Monitor"
+          info="Initial SL is 50% of premium sold on Wednesday, 100% on Thursday. Trailing SL triggers once price closes beyond the SuperTrend value."
           subtitle={`Short ${position.optionType} ${position.strike} @ ₹${position.entryPremium.toFixed(2)} entry`}
         >
           {!slStatus ? (
@@ -184,6 +186,7 @@ export default function DosPage() {
         <>
           <Card
             title="Backtest Summary"
+            info="DOS run across the last several weekly expiry Wed/Thu sessions using NSE Bhav Copy data, tracking win rate, P&L, and how often stop-losses were hit."
             subtitle={`${backtest.sessions_covered ?? 8} weeks, Wed + Thu expiry sessions`}
           >
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -209,7 +212,7 @@ export default function DosPage() {
             </div>
           </Card>
 
-          <Card title="Equity Curve">
+          <Card title="Equity Curve" info="Cumulative P&L across the backtest, trade by trade -- a rising line means the strategy compounded gains over the period tested.">
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={equityData}>
@@ -224,7 +227,7 @@ export default function DosPage() {
             </div>
           </Card>
 
-          <Card title="Trade Log">
+          <Card title="Trade Log" info="Every simulated trade in the backtest: entry strike and premium, exit reason (SL hit or market close), and the resulting P&L per trade.">
             <div className="overflow-x-auto -m-4 p-4">
               <table className="w-full text-xs font-mono mono-nums">
                 <thead>

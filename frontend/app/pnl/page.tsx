@@ -33,7 +33,7 @@ export default function PnlPage() {
         </p>
       </div>
 
-      <Card title="Attribution by Greek">
+      <Card title="Attribution by Greek" info="Splits the position's total P&L into how much each Greek contributed -- Delta (spot move), Gamma (convexity), Theta (time decay), Vega (IV change), and a residual for higher-order effects.">
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData}>
@@ -56,16 +56,16 @@ export default function PnlPage() {
       </Card>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <Card title="Actual Total P&L">
+        <Card title="Actual Total P&L" info="The real P&L on the position for this scenario -- the sum of all Greek contributions plus the residual.">
           <div className={`font-mono mono-nums text-2xl ${data.actual_pnl >= 0 ? "text-bullish" : "text-bearish"}`}>
             ₹{data.actual_pnl.toLocaleString()}
           </div>
         </Card>
-        <Card title="Primary Driver">
+        <Card title="Primary Driver" info="Whichever Greek contributed the largest share of the P&L move in this scenario.">
           <Badge label="neutral" />
           <div className="mt-2 font-sans text-lg">{data.primary_driver}</div>
         </Card>
-        <Card title="Residual (higher-order)">
+        <Card title="Residual (higher-order)" info="P&L left unexplained by the first-order Greek approximations -- comes from cross-effects and higher-order curvature the linear model misses.">
           <div className="font-mono mono-nums text-lg text-muted-foreground">₹{data.residual_pnl.toLocaleString()}</div>
           <p className="text-xs text-muted-foreground mt-1">Effects the linear/quadratic Greeks approximation misses.</p>
         </Card>

@@ -14,7 +14,7 @@ export default function Badge({ label }: { label: string }) {
   const key = label.toLowerCase();
   const style = STYLES[key] || "bg-muted/40 text-muted-foreground border-muted-foreground/30";
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border font-mono ${style}`}>
+    <span className={`hover-glow inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border font-mono ${style}`}>
       {label.toUpperCase()}
     </span>
   );

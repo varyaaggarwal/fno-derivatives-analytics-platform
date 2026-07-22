@@ -65,11 +65,11 @@ export default function SurfacePage() {
         </p>
       </div>
 
-      <Card title="Implied Volatility Surface (3D)" subtitle="Strike × expiry days × IV, rotate/zoom to inspect">
+      <Card title="Implied Volatility Surface (3D)" subtitle="Strike × expiry days × IV, rotate/zoom to inspect" info="A 3D view of implied volatility across every strike and expiry -- the 'surface' this page is named for. Height and color both track IV.">
         <VolSurface3D rows={rows} />
       </Card>
 
-      <Card title="IV Smile" subtitle={expiries.length ? `Nearest expiry: ${expiries[0]}d` : ""}>
+      <Card title="IV Smile" subtitle={expiries.length ? `Nearest expiry: ${expiries[0]}d` : ""} info="IV plotted against strike for the nearest expiry. The characteristic curve/skew shape is where the 'smile' name comes from.">
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={smile}>
@@ -83,7 +83,7 @@ export default function SurfacePage() {
         </div>
       </Card>
 
-      <Card title="Vol Surface Grid" subtitle="Strike (rows) × Expiry days (columns), color = IV">
+      <Card title="Vol Surface Grid" subtitle="Strike (rows) × Expiry days (columns), color = IV" info="Same surface as the 3D view above, as a flat color-coded grid -- blue is low IV, red is high IV.">
         <div className="overflow-x-auto -m-4 p-4">
           <table className="text-xs font-mono mono-nums border-separate border-spacing-[2px]">
             <thead>

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { NAV_GROUPS } from "@/lib/nav";
 import CommandTrigger from "@/components/CommandPalette";
+import InfoTooltip from "@/components/InfoTooltip";
 import { api } from "@/lib/api";
 
 export default function Sidebar() {
@@ -41,21 +42,22 @@ export default function Sidebar() {
               {group.label}
             </div>
             <div className="space-y-0.5">
-              {group.items.map(({ href, label, icon: Icon }) => {
+              {group.items.map(({ href, label, icon: Icon, description }) => {
                 const active = pathname === href;
                 return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={`focus-ring flex items-center gap-2.5 px-3 py-2 rounded-pill text-sm transition-colors ${
-                      active
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-muted-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/60"
-                    }`}
-                  >
-                    <Icon size={16} strokeWidth={2} className={active ? "text-sidebar-primary" : ""} />
-                    {label}
-                  </Link>
+                  <InfoTooltip key={href} text={description} className="w-full">
+                    <Link
+                      href={href}
+                      className={`hover-glow focus-ring flex items-center gap-2.5 px-3 py-2 rounded-pill text-sm transition-colors border border-transparent w-full ${
+                        active
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-muted-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/60"
+                      }`}
+                    >
+                      <Icon size={16} strokeWidth={2} className={active ? "text-sidebar-primary" : ""} />
+                      {label}
+                    </Link>
+                  </InfoTooltip>
                 );
               })}
             </div>

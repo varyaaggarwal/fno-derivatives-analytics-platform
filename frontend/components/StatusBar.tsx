@@ -77,7 +77,6 @@ export default function StatusBar() {
         </span>
         <span className="hidden sm:inline">LAST CHECK {lastCheck}</span>
       </div>
-      <div className="hidden md:block text-muted-foreground/70">EDUCATIONAL SIMULATION — NOT INVESTMENT ADVICE</div>
     </footer>
   );
 }
