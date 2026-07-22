@@ -23,7 +23,7 @@ export default function DataSourceBadge({
       }`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${isLive ? "bg-bullish" : "bg-warn"}`} />
-      {isLive ? dataSource.replace("live-", "LIVE · ").toUpperCase() : "MOCK DATA"}
+      {isLive ? "LIVE DATA" : "MOCK DATA"}
     </span>
   );
 }
