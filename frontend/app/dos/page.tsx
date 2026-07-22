@@ -80,6 +80,14 @@ export default function DosPage() {
       <div>
         <h1 className="font-sans text-xl font-medium">DOS Strategy</h1>
         <p className="text-sm text-muted-foreground mt-1">Direction of SuperTrend &middot; Bank Nifty Futures &middot; Wed/Thu expiry, 5-min SuperTrend(10,3)</p>
+        <p className="text-xs text-warn/90 mt-2 max-w-2xl leading-relaxed">
+          Note: this module follows the assignment brief's Bank Nifty weekly Wed/Thu expiry spec as an
+          educational exercise. In the real market, Bank Nifty weekly options were discontinued by NSE in
+          November 2024 (SEBI's one-weekly-expiry-per-exchange rule) -- Bank Nifty now expires monthly, on
+          the last Tuesday of the month. Nifty 50's own weekly expiry separately moved from Thursday to
+          Tuesday effective September 1, 2025. The Wed/Thu, twice-a-week cadence modeled here does not
+          currently exist on NSE.
+        </p>
       </div>
 
       <Card

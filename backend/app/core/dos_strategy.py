@@ -10,6 +10,15 @@ DOS (Direction of SuperTrend) strategy rules, implementing the spec exactly:
 - Trailing SL: triggers when price closes above/below the ST value of the
   short leg, whichever is *lower* risk-wise for a short option seller
 - Default exit: market close if no SL is hit
+
+NOTE ON THE WED/THU CADENCE (as of July 2026): this models the assignment
+brief's spec exactly, which is intentional for this exercise, but it no
+longer reflects live NSE mechanics. Bank Nifty weekly options were
+discontinued in November 2024 (SEBI limited each exchange to one weekly
+index expiry; NSE kept Nifty 50's). Bank Nifty now has only a monthly
+expiry, on the last Tuesday of the month. Nifty 50's own weekly expiry
+separately moved from Thursday to Tuesday effective 1 September 2025. There
+is currently no NSE instrument with a genuine Wed/Thu weekly-expiry cadence.
 """
 
 

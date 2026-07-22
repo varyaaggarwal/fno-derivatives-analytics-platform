@@ -67,6 +67,15 @@ frontend/
   Vol Surface (/surface), P&L Decomposer (/pnl), DOS Strategy (/dos).
 ```
 
+**Caveat on the DOS module's Wed/Thu cadence**: the assignment brief specifies Bank
+Nifty Futures with a weekly Wed/Thu expiry. This code implements that spec exactly
+(intentional, for the exercise), but it no longer matches live NSE mechanics as of
+July 2026: Bank Nifty weekly options were discontinued in November 2024 (SEBI's
+one-weekly-expiry-per-exchange rule), leaving Bank Nifty with only a monthly expiry
+on the last Tuesday of the month. Nifty 50's own weekly separately moved from
+Thursday to Tuesday effective 1 September 2025. No NSE instrument currently has a
+genuine Wed/Thu weekly-expiry cadence -- worth flagging in the write-up/viva.
+
 ## Run it
 
 ```bash
