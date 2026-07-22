@@ -140,9 +140,14 @@ Overview page, styled after the FnO deck's own "Risk Dashboard" gauge icons.
    `LIVE_NSE=true` as env vars on your deployed backend (Render). That's the
    whole switch -- `app/data/data_source.py` picks Upstox automatically over
    the NSE fallback whenever the token is present. **Upstox tokens expire
-   daily (~3:30 AM IST)** -- regenerate and re-set it each trading morning,
-   or the app quietly falls back to `live_nse_chain.py` (and then mock, if
-   that's blocked too) until you do.
+   daily (~3:30 AM IST)** -- Upstox has no long-lived refresh token, so a
+   fresh login (username/password + TOTP) through their hosted login page is
+   unavoidable once per trading day. `backend/scripts/refresh_upstox_token.py`
+   automates everything *after* that login: exchange the authorization code
+   for an access token, and (if `RENDER_API_KEY` + `RENDER_SERVICE_ID` are
+   set) push it straight into Render's env vars via Render's API so you
+   don't have to open the dashboard. See that script's docstring for the
+   exact daily steps. Skip this token expiry entirely with option 2 below.
 2. **Supabase**: create a project, run `supabase/schema.sql`, fill in `.env`
    from `.env.example`. Nothing currently writes to it yet -- next step is
    wiring `main.py` to cache chain snapshots and persist DOS trades there.
