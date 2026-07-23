@@ -6,5 +6,7 @@ scipy
 pytest
 supabase
 requests
+websockets   # WS_FEED_ENABLED live feed (app/data/live_ws_feed.py) -- optional, off by default
+protobuf==6.33.6   # pinned -- MarketDataFeedV3_pb2.py was compiled against this exact version, a mismatch raises VersionError at import
 yfinance
 curl_cffi

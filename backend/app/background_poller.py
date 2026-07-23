@@ -31,33 +31,31 @@ on your deployed backend.
 """
 import asyncio
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.data import supabase_client
+from app.data.market_hours import within_market_hours as _within_market_hours
 
 logger = logging.getLogger("background_poller")
 
 # Fixed UTC+5:30 offset -- IST has no daylight savings, so this is always
 # correct regardless of what timezone the server itself is running in.
-# BUG THIS FIXES: Render's containers run in UTC, not IST. The original
-# version of this check used datetime.now() (server-local, i.e. UTC on
-# Render) and compared it directly against 9:15/15:30 as if those were UTC
-# hours -- so it was checking the wrong 6.25-hour window entirely and
-# concluding "market closed" almost all real trading day.
+# BUG THIS FIXES (original bug, still relevant to the logging below):
+# Render's containers run in UTC, not IST. An earlier version of this
+# check used datetime.now() (server-local, i.e. UTC on Render) and
+# compared it directly against 9:15/15:30 as if those were UTC hours -- so
+# it was checking the wrong 6.25-hour window entirely and concluding
+# "market closed" almost all real trading day.
 IST = timezone(timedelta(hours=5, minutes=30))
 
-IST_MARKET_OPEN = (9, 15)
-IST_MARKET_CLOSE = (15, 30)
 POLL_INTERVAL_SECONDS = 30
 
-
-def _within_market_hours(now=None) -> bool:
-    now = now or datetime.now(IST)
-    if now.weekday() >= 5:
-        return False
-    open_t = now.replace(hour=IST_MARKET_OPEN[0], minute=IST_MARKET_OPEN[1], second=0, microsecond=0)
-    close_t = now.replace(hour=IST_MARKET_CLOSE[0], minute=IST_MARKET_CLOSE[1], second=0, microsecond=0)
-    return open_t <= now <= close_t
+# NOTE: the actual weekday+clock+holiday logic now lives in
+# app/data/market_hours.py (imported above as _within_market_hours) so
+# main.py's live-signal/SL-status endpoints and this poller can't drift out
+# of sync with each other, and so the holiday check only has to be written
+# once. This module keeps the same function name it always exposed so
+# nothing else here has to change.
 
 
 def _poll_symbol(symbol: str) -> bool:

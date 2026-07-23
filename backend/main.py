@@ -29,10 +29,12 @@ from app.core.dos_strategy import initial_sl_price, trailing_sl_hit
 from app.data.mock_option_chain import generate_chain, generate_vol_surface
 from app.data.mock_bnf_candles import generate_dataset
 from app.data import supabase_client
+from app.data.provenance import build_source_meta
 
 LIVE_NSE = os.getenv("LIVE_NSE", "false").lower() == "true"
 SUPABASE_RELAY = os.getenv("SUPABASE_RELAY", "false").lower() == "true"
 BACKGROUND_POLL = os.getenv("BACKGROUND_POLL", "false").lower() == "true"
+WS_FEED_ENABLED = os.getenv("WS_FEED_ENABLED", "false").lower() == "true"
 RISK_FREE_RATE = 0.065
 
 app = FastAPI(title="F&O Derivatives Analytics API")
@@ -131,6 +133,48 @@ async def _launch_background_poller():
         app.state.poller_task = asyncio.create_task(run_forever())
 
 
+@app.on_event("startup")
+async def _launch_ws_feed():
+    """
+    Separate, independent opt-in: Upstox's real-time WebSocket feed (see
+    app/data/live_ws_feed.py for the full explanation, including the
+    auth-failure parking behaviour). Off by default (WS_FEED_ENABLED
+    unset/false) -- every existing endpoint is completely unaffected
+    either way. Same "keep the task referenced so asyncio can't silently
+    GC it" pattern as the background poller above.
+    """
+    if WS_FEED_ENABLED:
+        import asyncio
+        from app.data.live_ws_feed import run_forever as ws_run_forever
+        app.state.ws_feed_task = asyncio.create_task(ws_run_forever())
+
+
+@app.get("/api/live-spot")
+def get_live_spot(symbol: str = "BANKNIFTY"):
+    """
+    Push-updated spot price from the WS feed, if enabled and connected --
+    genuinely real-time (updates the instant Upstox sends a tick), unlike
+    every other endpoint here which is poll-based. Falls back to `null`
+    with an honest reason if the feed isn't enabled/connected/warmed up
+    yet, or is parked on an auth failure; callers should fall back to
+    /api/chain's spot in any of those cases.
+    """
+    from app.data.live_ws_feed import latest_snapshot, feed_status, INSTRUMENT_KEYS
+    status = feed_status()
+    if not WS_FEED_ENABLED:
+        return {"spot": None, "reason": "WS_FEED_ENABLED is false", **status}
+    if status.get("auth_failed"):
+        return {"spot": None, "reason": "UPSTOX_ACCESS_TOKEN rejected -- feed parked, see auth_failed_since", **status}
+    instrument_key = INSTRUMENT_KEYS.get(symbol.upper())
+    if instrument_key is None:
+        return {"spot": None, "reason": f"unknown symbol {symbol}", **status}
+    tick = latest_snapshot(instrument_key)
+    if tick is None:
+        return {"spot": None, "reason": "no tick received yet", **status}
+    return {"spot": tick.get("ltp"), "prev_close": tick.get("close"),
+            "ltt": tick.get("ltt"), **status}
+
+
 @app.get("/api/health")
 def health():
     poller_task = getattr(app.state, "poller_task", None)
@@ -175,6 +219,10 @@ def get_chain(expiry_days: int = 6, spot: float = 24350.0):
         "rows": rows,
         "data_source": data_source,
         "live_fetch_error": live_fetch_error,
+        # Structured provenance, additive alongside the two flat fields
+        # above (kept for backward compatibility with anything already
+        # reading them) -- see app/data/provenance.py.
+        "source_meta": build_source_meta(data_source, live_fetch_error=live_fetch_error),
     }
 
 
