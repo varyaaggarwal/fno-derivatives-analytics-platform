@@ -6,6 +6,7 @@ import Badge from "@/components/Badge";
 import DataSourceBadge from "@/components/DataSourceBadge";
 import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import useKeepalive from "@/hooks/useKeepalive";
 
 import { Skeleton, SkeletonBlock } from "@/components/Skeleton";
 
@@ -22,6 +23,12 @@ export default function DosPage() {
   const [position, setPosition] = useState<OpenPosition | null>(null);
   const [slStatus, setSlStatus] = useState<DosSlStatus | null>(null);
   const [persistState, setPersistState] = useState<"idle" | "saving" | "done" | "error">("idle");
+
+  // Keeps the Render backend awake while this live-signal/SL-monitor page
+  // is open -- see hooks/useKeepalive.ts. Harmless if you're on localhost
+  // (NEXT_PUBLIC_API_BASE unset falls back to http://localhost:8000,
+  // which never sleeps anyway).
+  useKeepalive(true, process.env.NEXT_PUBLIC_API_BASE);
 
   useEffect(() => {
     api.dosLiveSignal().then(setSignal).catch(console.error);
