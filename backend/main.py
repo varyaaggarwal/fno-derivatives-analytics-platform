@@ -263,14 +263,30 @@ def get_interpretation(expiry_days: int = 6, spot: float = 24350.0):
 
 
 @app.get("/api/pnl-decompose")
-def get_pnl_decompose(strike: float = 24350, spot_move_pct: float = 0.8, iv_change_pts: float = 1.3,
-                       expiry_days: int = 6, quantity: int = -50):
-    """P&L decomposition for a sample position -- MVP requirement."""
-    spot0 = 24350.0
+def get_pnl_decompose(strike: float = 24350, spot: float = 24350, spot_move_pct: float = 0.8,
+                       iv_change_pts: float = 1.3, expiry_days: int = 6, days_elapsed: int = 1,
+                       quantity: int = -50):
+    """
+    P&L decomposition for a sample position -- MVP requirement.
+
+    spot: the starting index level (was hardcoded to 24350 -- now a real
+        parameter so the frontend's "Index" input actually changes
+        anything, rather than only shifting the *move* off a fixed base).
+    days_elapsed: how many trading days pass between snapshot_t0 and
+        snapshot_t1 (was hardcoded to 1 -- now adjustable so the frontend's
+        "Time" input reflects an actual theta decay path instead of always
+        being exactly one day, regardless of what's shown). Clamped so
+        time-to-expiry can never go to zero/negative -- an option 6 days
+        from expiry with 10 "days elapsed" selected decays to just short of
+        expiry (1 day left) rather than crashing Black-Scholes.
+    """
+    spot0 = spot
     T0 = expiry_days / 365.0
+    days_elapsed = max(days_elapsed, 0)
+    T1 = max(T0 - days_elapsed / 365.0, 1 / 365.0)
     position = {"K": strike, "r": RISK_FREE_RATE, "option_type": "call", "quantity": quantity}
     snap_t0 = {"S": spot0, "T": T0, "sigma": 0.135}
-    snap_t1 = {"S": spot0 * (1 + spot_move_pct / 100), "T": T0 - 1 / 365, "sigma": 0.135 + iv_change_pts / 100}
+    snap_t1 = {"S": spot0 * (1 + spot_move_pct / 100), "T": T1, "sigma": 0.135 + iv_change_pts / 100}
     result = decompose_pnl(position, snap_t0, snap_t1)
     return {k: (round(v, 2) if isinstance(v, (int, float, np.floating)) else v) for k, v in result.items()}
 

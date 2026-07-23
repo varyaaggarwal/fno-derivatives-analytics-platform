@@ -48,7 +48,19 @@ export interface PnlDecomposeResponse {
   vega_pnl: number;
   residual_pnl: number;
   actual_pnl: number;
+  price_t0: number;
+  price_t1: number;
   primary_driver: string;
+}
+
+export interface PnlDecomposeParams {
+  strike?: number;
+  spot?: number;
+  spotMovePct?: number;
+  ivChangePts?: number;
+  expiryDays?: number;
+  daysElapsed?: number;
+  quantity?: number;
 }
 
 export interface DosSummary {
@@ -138,7 +150,18 @@ export const api = {
   health: () => getJSON<HealthResponse>(`/api/health`),
   chain: (expiryDays = 6, spot = 24350) => getJSON<ChainResponse>(`/api/chain?expiry_days=${expiryDays}&spot=${spot}`),
   interpretation: (expiryDays = 6, spot = 24350) => getJSON<InterpretationResponse>(`/api/interpretation?expiry_days=${expiryDays}&spot=${spot}`),
-  pnlDecompose: (strike = 24350) => getJSON<PnlDecomposeResponse>(`/api/pnl-decompose?strike=${strike}`),
+  pnlDecompose: (params: PnlDecomposeParams = {}) => {
+    const {
+      strike = 24350, spot = 24350, spotMovePct = 0.8, ivChangePts = 1.3,
+      expiryDays = 6, daysElapsed = 1, quantity = -50,
+    } = params;
+    const qs = new URLSearchParams({
+      strike: String(strike), spot: String(spot), spot_move_pct: String(spotMovePct),
+      iv_change_pts: String(ivChangePts), expiry_days: String(expiryDays),
+      days_elapsed: String(daysElapsed), quantity: String(quantity),
+    });
+    return getJSON<PnlDecomposeResponse>(`/api/pnl-decompose?${qs.toString()}`);
+  },
   dosBacktest: (weeks = 8, persist = false) => getJSON<DosBacktestResponse>(`/api/dos/backtest?n_weeks=${weeks}&persist=${persist}`),
   dosLiveSignal: () => getJSON<DosLiveSignal>(`/api/dos/live-signal`),
   dosSlStatus: (dayType: string, optionType: string, strike: number, entryPremium: number) =>
