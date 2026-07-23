@@ -116,4 +116,4 @@ number so strikes and Greeks line up like a real terminal.
 
 ---
 
-📄 A one-page write-up covering the design decisions and known limitations in more depth: [`docs/ONE_PAGER.pdf`](docs/ONE_PAGER.pdf)
+📄 A one-page write-up covering the design decisions and known limitations in more depth: [`docs/ONE_PAGER.md`](docs/ONE_PAGER.md)
