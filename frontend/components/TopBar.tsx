@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import DataSourceBadge from "@/components/DataSourceBadge";
+import MobileNav from "@/components/MobileNav";
 
 function nextExpiryCountdown(): string {
   const now = new Date();
@@ -63,6 +64,7 @@ export default function TopBar() {
   return (
     <header className="h-14 border-b border-border bg-card/60 backdrop-blur flex items-center justify-between px-4 md:px-6">
       <div className="flex items-center gap-3">
+        <MobileNav />
         <span className="text-sm text-muted-foreground">NIFTY</span>
         <span className="font-mono mono-nums text-sm text-foreground">
           {spot !== null ? spot.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "--"}

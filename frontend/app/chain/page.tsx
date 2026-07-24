@@ -41,6 +41,7 @@ export default function ChainPage() {
   const [interp, setInterp] = useState<InterpretationResponse | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("strike");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
+  const [showAllGreeks, setShowAllGreeks] = useState(false);
 
   useEffect(() => {
     api.chain().then(setData).catch(console.error);
@@ -55,6 +56,23 @@ export default function ChainPage() {
       return sortDir * ((av as number) - (bv as number));
     });
   }, [data, sortKey, sortDir]);
+
+  // Full Chain (Greeks) default view: nearest 8 strikes to spot (16 rows,
+  // call+put) instead of every strike -- with 15 strikes each side of ATM
+  // by default that's ~62 rows, meaning a lot of scrolling for a table most
+  // people only need the near-the-money section of. "Show all" below
+  // reveals the rest without losing any data.
+  const nearAtmStrikesForGreeks = useMemo(() => {
+    if (!data) return new Set<number>();
+    const strikes = [...new Set(data.rows.map((r) => r.strike))];
+    const nearest = strikes.sort((a, b) => Math.abs(a - data.spot) - Math.abs(b - data.spot)).slice(0, 8);
+    return new Set(nearest);
+  }, [data]);
+
+  const visibleGreeksRows = useMemo(
+    () => (showAllGreeks ? rows : rows.filter((r) => nearAtmStrikesForGreeks.has(r.strike))),
+    [rows, showAllGreeks, nearAtmStrikesForGreeks]
+  );
 
   // Strikes closest to spot first, so the side-by-side chain opens ATM instead of at the lowest strike.
   const strikesNearSpot = useMemo(() => {
@@ -232,9 +250,21 @@ export default function ChainPage() {
         </div>
       </div>
 
-      {/* Full sortable chain with Greeks, kept for anyone who needs the detail view */}
-      <Card title="Full Chain (Greeks)" subtitle="Every strike, sortable" info="Every strike with full Greeks -- click any column header to sort. Shaded rows are in-the-money.">
-        <div className="overflow-x-auto -m-4 p-4">
+      {/* Full sortable chain with Greeks -- defaults to the near-ATM subset, see nearAtmStrikesForGreeks above */}
+      <Card
+        title="Full Chain (Greeks)"
+        subtitle={showAllGreeks ? "Every strike, sortable" : `Nearest strikes to spot, sortable · ${rows.length - visibleGreeksRows.length} more hidden`}
+        info="Every strike with full Greeks -- click any column header to sort. Shaded rows are in-the-money."
+      >
+        <div className="flex justify-end mb-2 -mt-1">
+          <button
+            onClick={() => setShowAllGreeks((v) => !v)}
+            className="text-xs px-2.5 py-1 rounded border border-border text-muted-foreground hover:bg-muted/40 transition-colors"
+          >
+            {showAllGreeks ? "Show fewer (near spot only)" : `Show all ${rows.length} rows`}
+          </button>
+        </div>
+        <div className="overflow-x-auto -m-4 p-4 pt-0">
           {!data ? (
             <SkeletonTableRows rows={10} cols={9} />
           ) : (
@@ -254,7 +284,7 @@ export default function ChainPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => {
+              {visibleGreeksRows.map((r, i) => {
                 const isITM = r.option_type === "call" ? r.strike < (data?.spot || 0) : r.strike > (data?.spot || 0);
                 return (
                   <tr key={i} className={`border-b border-border/50 hover:bg-muted/40 ${isITM ? "bg-muted/20" : ""}`}>

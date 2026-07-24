@@ -85,10 +85,17 @@ export default function SurfacePage() {
 
       <Card title="Vol Surface Grid" subtitle="Strike (rows) × Expiry days (columns), color = IV" info="Same surface as the 3D view above, as a flat color-coded grid -- blue is low IV, red is high IV.">
         <div className="overflow-x-auto -m-4 p-4">
-          <table className="text-xs font-mono mono-nums border-separate border-spacing-[2px]">
+          {/*
+            table-fixed + w-full so this always fills the card's width,
+            whatever the strike/expiry count -- a plain <table> sizes to its
+            content, which left most of the card blank whenever there were
+            only a handful of expiry columns. min-w ensures it still
+            scrolls instead of over-squishing if there are ever many more.
+          */}
+          <table className="text-xs font-mono mono-nums border-separate border-spacing-[2px] w-full table-fixed" style={{ minWidth: `${80 + expiries.length * 70}px` }}>
             <thead>
               <tr>
-                <th className="p-1 text-muted-foreground text-left">Strike</th>
+                <th className="p-1 text-muted-foreground text-left w-16">Strike</th>
                 {expiries.map((e) => (
                   <th key={e} className="p-1 text-muted-foreground">{e}d</th>
                 ))}
@@ -104,7 +111,7 @@ export default function SurfacePage() {
                       <td
                         key={e}
                         title={`${iv?.toFixed(2)}%`}
-                        className="w-12 h-7 text-center rounded text-[10px] text-background font-medium"
+                        className="h-7 text-center rounded text-[10px] text-background font-medium"
                         style={{ background: iv !== undefined ? ivColor(iv, minIv, maxIv) : "hsl(var(--border))" }}
                       >
                         {iv !== undefined ? iv.toFixed(1) : "-"}
