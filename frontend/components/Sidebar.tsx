@@ -6,6 +6,7 @@ import { RefreshCw } from "lucide-react";
 import { NAV_GROUPS } from "@/lib/nav";
 import CommandTrigger from "@/components/CommandPalette";
 import InfoTooltip from "@/components/InfoTooltip";
+import SidebarDoodle from "@/components/SidebarDoodle";
 import { api } from "@/lib/api";
 
 export default function Sidebar() {
@@ -35,7 +36,9 @@ export default function Sidebar() {
         <CommandTrigger />
       </div>
 
-      <nav className="flex-1 px-2 space-y-4 overflow-y-auto">
+      <nav className="flex-1 relative px-2 space-y-4 overflow-y-auto">
+        <SidebarDoodle />
+        <div className="relative z-10 space-y-4">
         {NAV_GROUPS.map((group) => (
           <div key={group.label}>
             <div className="px-3 pb-1.5 text-[11px] font-medium tracking-wide uppercase text-muted-foreground/70">
@@ -63,6 +66,7 @@ export default function Sidebar() {
             </div>
           </div>
         ))}
+        </div>
       </nav>
 
       <div className="px-4 py-3 border-t border-sidebar-border flex items-center gap-2 text-xs text-muted-foreground">
